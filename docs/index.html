@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tracer l’API — Andika</title>
+<title>Tracer l’API — Andika (rempli)</title>
 <style>
   :root{
     --bg:#f8fafc; --card:#fff; --ink:#0f172a; --muted:#475569; --border:#e2e8f0;
@@ -12,7 +12,7 @@
   *{box-sizing:border-box}
   body{margin:0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
   header{padding:20px 16px;text-align:center}
-  header h1{margin:.2rem 0 0;font-size:clamp(20px,4vw,28px);font-weight:800;letter-spacing:.2px}
+  header h1{margin:.2rem 0 0;font-size:clamp(20px,4vw,28px);font-weight:800}
   header p{margin:.2rem 0;color:var(--muted)}
   .wrap{max-width:1100px;margin:0 auto;padding:0 16px 28px}
   .controls{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:8px auto 18px}
@@ -33,7 +33,7 @@
   .card h3{margin:.25rem 0 .75rem;font-size:16px;color:var(--muted);font-weight:700}
   .stage{position:relative;width:400px;max-width:100%;margin:0 auto}
   #stencilBox{position:relative;width:100%;padding-top:100%}
-  #stencil{position:absolute;left:0;top:0;width:100%;height:100%;opacity:.62;image-rendering:pixelated;transform-origin:50% 50%}
+  #stencil{position:absolute;left:0;top:0;width:100%;height:100%;opacity:.55;image-rendering:pixelated}
   canvas{width:100%;height:auto;background:#fff;border-radius:12px;border:1px solid var(--border);
          box-shadow:inset 0 0 0 1px rgba(15,23,42,.02);touch-action:none}
   .row{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:10px;flex-wrap:wrap}
@@ -46,23 +46,23 @@
 </head>
 <body>
 <header class="wrap">
-  <h1>Tracer l’API — Andika</h1>
-  <p>Choisis un symbole, trace par-dessus le pochoir, puis évalue ton tracé. Interface claire, pastels, compatible mobile.</p>
+  <h1>Tracer l’API — Andika (pochoirs remplis)</h1>
+  <p>Choisis un symbole, trace par-dessus le pochoir noir (rempli), puis évalue. Scores plus justes, trait plus épais. Aucun diacritique ici.</p>
   <div class="controls">
     <div class="chip">
       <label for="lw">Épaisseur du trait</label>
-      <input id="lw" type="range" min="2" max="32" value="12">
-      <input id="lw_n" type="number" min="2" max="64" value="12">
-    </div>
-    <div class="chip">
-      <label for="stretch">Étirement Y</label>
-      <input id="stretch" type="range" min="80" max="150" value="100">
-      <input id="stretch_n" type="number" min="80" max="150" value="100"><span class="muted">%</span>
+      <input id="lw" type="range" min="4" max="36" value="16">
+      <input id="lw_n" type="number" min="4" max="72" value="16">
     </div>
     <div class="chip">
       <label for="th">Seuil noir</label>
-      <input id="th" type="range" min="150" max="255" value="235">
-      <input id="th_n" type="number" min="150" max="255" value="235">
+      <input id="th" type="range" min="180" max="255" value="235">
+      <input id="th_n" type="number" min="180" max="255" value="235">
+    </div>
+    <div class="chip">
+      <label for="dil">Tolérance (dilatation)</label>
+      <input id="dil" type="range" min="0" max="4" value="2">
+      <input id="dil_n" type="number" min="0" max="8" value="2">
     </div>
   </div>
 </header>
@@ -74,6 +74,7 @@
     <div class="card">
       <h3>Pochoir</h3>
       <div id="stencilBox" class="stage"><img id="stencil" alt="stencil"></div>
+      <p class="muted">Pochoirs **remplis** (Andika). Ce que tu vois est ce qui est évalué.</p>
     </div>
 
     <div class="card">
@@ -84,40 +85,39 @@
         <button id="clear" class="btn clear">Effacer</button>
         <div id="out" class="score" style="display:none"></div>
       </div>
+      <p class="muted">Mobile: pas de scroll pendant le dessin; trait net sur écrans HDPI.</p>
     </div>
   </div>
 </main>
 
 <script>
-/* ===== Réglages globaux ===== */
+/* ===== Réglages ===== */
 const SIZE = 400;
-let LINE_WIDTH = 18;     // trait
-let STRETCH_Y = 1.00;    // pas d’étirement par défaut
-let THRESH = 235;        // seuil de binarisation (plus haut = plus tolérant)
-let DILATION_ITERS = 3;  // tolérance du score
+let LINE_WIDTH = 16;
+let THRESH = 235;
+let DILATION_ITERS = 2;
 
-let symbols = [];        // {ch, file}
+let symbols = [];        // {ch, file} -> docs/svgs/...
 let current = null;
-let modelMask = null;    // Uint8Array
-let drawFit = {dx:0, dy:0, dw:SIZE, dh:SIZE};
+let modelMask = null;
 
 /* ===== UI sliders ===== */
 const lw = document.getElementById('lw'), lw_n = document.getElementById('lw_n');
-function setLW(v){ LINE_WIDTH = Math.max(1, Number(v)||12); lw.value=LINE_WIDTH; lw_n.value=LINE_WIDTH; ctx.lineWidth = LINE_WIDTH; }
+function setLW(v){ LINE_WIDTH = Math.max(1, Number(v)||16); lw.value=LINE_WIDTH; lw_n.value=LINE_WIDTH; ctx.lineWidth = LINE_WIDTH; }
 lw.oninput = e=>setLW(e.target.value); lw_n.oninput = e=>setLW(e.target.value);
-
-const st = document.getElementById('stretch'), st_n = document.getElementById('stretch_n');
-function setStretch(pct){ const p = Math.max(50, Math.min(200, Number(pct)||100)); STRETCH_Y = p/100; st.value=p; st_n.value=p;
-  if(current){ showStencil(current.file); svgToMask(current.file).then(m=>modelMask=m); } }
-st.oninput = e=>setStretch(e.target.value); st_n.oninput = e=>setStretch(e.target.value);
 
 const th = document.getElementById('th'), th_n = document.getElementById('th_n');
 function setTH(v){ const x = Math.max(150, Math.min(255, Number(v)||235)); THRESH=x; th.value=x; th_n.value=x; if(current) svgToMask(current.file).then(m=>modelMask=m); }
 th.oninput = e=>setTH(e.target.value); th_n.oninput = e=>setTH(e.target.value);
 
+const dil = document.getElementById('dil'), dil_n = document.getElementById('dil_n');
+function setDIL(v){ const x = Math.max(0, Math.min(8, Number(v)||2)); DILATION_ITERS=x; dil.value=x; dil_n.value=x; }
+dil.oninput = e=>setDIL(e.target.value); dil_n.oninput = e=>setDIL(e.target.value);
+
 /* ===== Charger la liste ===== */
 fetch('symbols.json').then(r=>r.json()).then(j=>{
-  symbols = j.symbols || [];
+  // On ignore toute entrée qui ne pointe pas vers docs/svgs/ (diacritiques exclus par construction)
+  symbols = (j.symbols||[]).filter(s => (s.file||'').includes('svgs/'));
   buildGrid();
   if(symbols.length) selectSymbol(0);
 }).catch(()=>{ document.getElementById('grid').textContent = "symbols.json introuvable"; });
@@ -143,40 +143,32 @@ function fitRect(imgW, imgH, boxW=SIZE, boxH=SIZE){
   return {dx, dy, dw, dh};
 }
 
-/* ===== Stencil visuel + même étirement que le masque ===== */
+/* ===== Stencil visuel (identique à l'éval car SVG remplis) ===== */
 function showStencil(url){
   const img = document.getElementById('stencil');
   img.onload = ()=>{
-    drawFit = fitRect(img.naturalWidth||SIZE, img.naturalHeight||SIZE, SIZE, SIZE);
-    img.style.left = drawFit.dx+'px';
-    img.style.top  = drawFit.dy+'px';
-    img.style.width  = drawFit.dw+'px';
-    img.style.height = drawFit.dh+'px';
-    img.style.transform = `scaleY(${STRETCH_Y})`;
+    const fit = fitRect(img.naturalWidth||SIZE, img.naturalHeight||SIZE, SIZE, SIZE);
+    img.style.left = fit.dx+'px'; img.style.top = fit.dy+'px';
+    img.style.width = fit.dw+'px'; img.style.height = fit.dh+'px';
   };
   img.src = url;
 }
 
-/* ===== SVG -> masque binaire ===== */
+/* ===== SVG (rempli) -> masque binaire ===== */
 async function svgToMask(url){
   return new Promise((resolve)=>{
-    const img = new Image(); img.crossOrigin = 'anonymous';
+    const img = new Image(); img.crossOrigin='anonymous';
     img.onload = ()=>{
       const fit = fitRect(img.naturalWidth||SIZE, img.naturalHeight||SIZE, SIZE, SIZE);
       const off = document.createElement('canvas'); off.width=SIZE; off.height=SIZE;
       const cx = off.getContext('2d');
-      // fond blanc pour un seuillage propre
       cx.fillStyle = '#fff'; cx.fillRect(0,0,SIZE,SIZE);
-      // étirement Y autour du centre du fit
-      cx.save(); const cy = fit.dy + fit.dh/2;
-      cx.translate(0, cy); cx.scale(1, STRETCH_Y); cx.translate(0, -cy);
       cx.drawImage(img, fit.dx, fit.dy, fit.dw, fit.dh);
-      cx.restore();
       const data = cx.getImageData(0,0,SIZE,SIZE).data;
       const mask = new Uint8Array(SIZE*SIZE);
       for(let i=0,p=0;i<data.length;i+=4,p++){
         const lum = data[i]*.2126 + data[i+1]*.7152 + data[i+2]*.0722;
-        mask[p] = (lum < THRESH) ? 1 : 0;
+        mask[p] = (lum < THRESH) ? 1 : 0; // noir plein -> 1
       }
       resolve(mask);
     };
@@ -203,13 +195,13 @@ function setupCanvas(){
   pad.width  = Math.round(SIZE*dpr);
   pad.height = Math.round(SIZE*dpr);
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,SIZE,SIZE); // fond blanc explicite
+  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,SIZE,SIZE);
   ctx.lineCap='round'; ctx.strokeStyle='#000'; ctx.lineWidth = LINE_WIDTH;
 }
 setupCanvas(); window.addEventListener('resize', setupCanvas);
 
 // mobile: pas de scroll pendant le dessin
-pad.style.touchAction = 'none';
+pad.style.touchAction='none';
 pad.addEventListener('touchstart', e=>e.preventDefault(), {passive:false});
 pad.addEventListener('touchmove',  e=>e.preventDefault(), {passive:false});
 
@@ -224,11 +216,8 @@ pad.addEventListener('pointermove', e=>{
   if(last){ ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(x,y); ctx.stroke(); }
   last = {x,y};
 });
-function getXY(e){
-  const r = pad.getBoundingClientRect();
-  return { x: Math.round((e.clientX-r.left)*(SIZE/r.width)),
-           y: Math.round((e.clientY-r.top) *(SIZE/r.height)) };
-}
+function getXY(e){ const r = pad.getBoundingClientRect();
+  return { x: Math.round((e.clientX-r.left)*(SIZE/r.width)), y: Math.round((e.clientY-r.top)*(SIZE/r.height)) }; }
 
 /* ===== Outils ===== */
 function clearPad(init=false){
@@ -237,7 +226,7 @@ function clearPad(init=false){
 }
 document.getElementById('clear').onclick = ()=>clearPad();
 
-/* ===== Score (Dice + dilation) ===== */
+/* ===== Score (Dice + dilatation réglable) ===== */
 document.getElementById('eval').onclick = ()=>{
   const userMask = canvasToMask();
   const m = dilate(modelMask, SIZE, DILATION_ITERS);
@@ -262,6 +251,7 @@ function canvasToMask(){
 function sum(m){ let s=0; for(let i=0;i<m.length;i++) s+=m[i]; return s; }
 function intersect(a,b){ let s=0; for(let i=0;i<a.length;i++) s += (a[i]&&b[i])?1:0; return s; }
 function dilate(mask,size,it){
+  if(it<=0) return mask.slice();
   let out = mask.slice();
   for(let k=0;k<it;k++){
     const next = out.slice();
@@ -278,7 +268,7 @@ function dilate(mask,size,it){
 }
 
 /* init contrôles */
-setLW(LINE_WIDTH); setStretch(100); setTH(THRESH);
+setLW(LINE_WIDTH); setTH(THRESH); setDIL(DILATION_ITERS);
 </script>
 </body>
 </html>
