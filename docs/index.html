@@ -3,70 +3,166 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tracer l’API — version statique</title>
+<title>Tracer l’API — clair & pastel</title>
 <style>
-  :root { color-scheme: light dark; }
-  body { margin:0; font:16px system-ui, sans-serif; background:#0b0c10; color:#eaeaea; }
-  header { padding:16px 20px; text-align:center; }
-  .wrap { max-width:1100px; margin:0 auto; padding:0 16px 24px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(72px,1fr)); gap:10px; }
-  .tile { display:grid; place-items:center; aspect-ratio:1/1; background:#111418; border:1px solid #222; border-radius:10px; cursor:pointer; }
-  .tile img { width:60px; height:60px; filter:grayscale(0.2); }
-  .tile.active { outline:2px solid #2563eb; }
-  .panel { display:grid; grid-template-columns:400px 420px; gap:16px; align-items:start; }
-  .card { background:#111418; border:1px solid #222; border-radius:12px; padding:12px; }
-  canvas { background:#fff; border-radius:8px; border:1px solid #ddd; }
-  .btn { padding:10px 14px; background:#2563eb; color:#fff; border:none; border-radius:10px; cursor:pointer; }
-  .row { display:flex; gap:10px; align-items:center; }
-  .score { font-weight:600; }
+  :root{
+    --bg: #f8fafc;           /* gris très clair */
+    --card: #ffffff;         /* cartes blanches */
+    --ink: #0f172a;          /* texte anthracite */
+    --muted: #475569;        /* sous-texte */
+    --accent: #60a5fa;       /* bleu pastel */
+    --accent-2:#a78bfa;      /* violet pastel */
+    --accent-3:#34d399;      /* vert pastel */
+    --border:#e2e8f0;        /* bordures */
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:20px 16px;text-align:center}
+  header h1{margin:.2rem 0 0;font-size:clamp(20px,4vw,28px);font-weight:800;letter-spacing:.2px}
+  header p{margin:.2rem 0;color:var(--muted)}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 16px 28px}
+
+  /* Bandeau contrôles */
+  .controls{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:8px auto 18px}
+  .chip{
+    display:flex;align-items:center;gap:8px;
+    background:linear-gradient(180deg,#eef2ff,#e0f2fe);
+    border:1px solid var(--border);border-radius:999px;padding:8px 12px;
+  }
+  .chip label{font-size:13px;color:var(--muted)}
+  .chip input[type="range"]{accent-color:var(--accent);width:160px}
+  .chip input[type="number"]{width:64px;padding:4px 6px;border:1px solid var(--border);border-radius:8px}
+
+  /* Grille des symboles */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:12px}
+  .tile{
+    background:var(--card);border:1px solid var(--border);border-radius:12px;
+    display:grid;place-items:center;aspect-ratio:1/1;cursor:pointer;
+    box-shadow:0 1px 2px rgba(15,23,42,.06);
+    transition:transform .06s ease, box-shadow .06s ease;
+  }
+  .tile:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(15,23,42,.06)}
+  .tile.active{outline:2px solid var(--accent)}
+  .tile img{width:68px;height:68px;filter:grayscale(.08)}
+
+  /* Panneau principal */
+  .panel{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;margin-top:18px}
+  @media (max-width:900px){ .panel{grid-template-columns:1fr} }
+  .card{
+    background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;
+    box-shadow:0 1px 2px rgba(15,23,42,.06);
+  }
+  .card h3{margin:.25rem 0 .75rem;font-size:16px;color:var(--muted);font-weight:700}
+
+  /* Zone stencil + canvas */
+  .stage{position:relative;width:400px;max-width:100%;margin:0 auto}
+  #stencilBox{position:relative;width:100%;padding-top:100%; /* carré responsive */}
+  #stencil{
+    position:absolute;left:0;top:0;width:100%;height:100%;
+    opacity:.62;image-rendering:pixelated;transform-origin:50% 50%;
+  }
+  canvas{
+    width:100%;height:auto;background:#ffffff;border-radius:12px;border:1px solid var(--border);
+    box-shadow:inset 0 0 0 1px rgba(15,23,42,.02);
+    touch-action:none; /* mobile: ne pas scroller pendant le dessin */
+  }
+
+  /* Boutons */
+  .row{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:10px;flex-wrap:wrap}
+  .btn{
+    padding:10px 14px;border:none;border-radius:12px;color:#fff;cursor:pointer;
+    box-shadow:0 2px 6px rgba(99,102,241,.18);font-weight:600
+  }
+  .btn.eval{background:linear-gradient(180deg,var(--accent),#3b82f6)}
+  .btn.clear{background:linear-gradient(180deg,#a5b4fc,var(--accent-2))}
+  .score{font-weight:700;color:#0b7669;background:linear-gradient(180deg,#d1fae5,#a7f3d0);border:1px solid #99f6e4;border-radius:999px;padding:8px 12px}
+  .muted{color:var(--muted);font-size:13px;text-align:center;margin-top:6px}
 </style>
 </head>
 <body>
-<header>
-  <h1>Tracer l’API — version statique</h1>
-  <p>Choisis un symbole, trace par-dessus le pochoir, puis <em>Évaluer</em>.</p>
+<header class="wrap">
+  <h1>Tracer l’API</h1>
+  <p>Choisis un symbole, trace par-dessus le pochoir, puis évalue ton tracé. Interface claire, couleurs pastels, compatible mobile.</p>
+  <div class="controls">
+    <div class="chip">
+      <label for="lw">Épaisseur du trait</label>
+      <input id="lw" type="range" min="2" max="24" value="10">
+      <input id="lw_n" type="number" min="2" max="48" value="10">
+    </div>
+    <div class="chip">
+      <label for="stretch">Étirement Y</label>
+      <input id="stretch" type="range" min="100" max="125" value="105">
+      <input id="stretch_n" type="number" min="80" max="150" value="105">
+      <span class="muted">%</span>
+    </div>
+  </div>
 </header>
+
 <main class="wrap">
   <div id="grid" class="grid"></div>
-  <div class="panel" style="margin-top:18px;">
+
+  <div class="panel">
     <div class="card">
       <h3>Pochoir</h3>
-      <div id="stencilBox" style="position:relative;width:400px;height:400px;">
-        <img id="stencil" alt="stencil" style="position:absolute;left:0;top:0;width:400px;height:400px;opacity:.62;image-rendering:pixelated;">
+      <div id="stencilBox" class="stage">
+        <img id="stencil" alt="stencil">
       </div>
+      <p class="muted">Le pochoir respecte ses proportions; l’étirement Y s’applique au rendu et au score pour compenser des exports trop plats.</p>
     </div>
+
     <div class="card">
       <h3>À toi de tracer</h3>
-      <canvas id="pad" width="400" height="400"></canvas>
-      <div class="row" style="margin-top:10px;">
-        <button id="eval" class="btn">Évaluer</button>
-        <button id="clear" class="btn" style="background:#475569;">Effacer</button>
-        <div id="out" class="score"></div>
+      <div class="stage">
+        <canvas id="pad" width="400" height="400"></canvas>
       </div>
+      <div class="row">
+        <button id="eval" class="btn eval">Évaluer</button>
+        <button id="clear" class="btn clear">Effacer</button>
+        <div id="out" class="score" style="display:none"></div>
+      </div>
+      <p class="muted">Astuce: sur mobile, garde le doigt dans le cadre. Le trait suit maintenant correctement sans faire défiler la page.</p>
     </div>
   </div>
 </main>
 
-
-  <script>
-/* ====== Réglages ====== */
-const SIZE = 400;              // taille CSS du canvas
-const STRETCH_Y = 1.10;        // étirer verticalement le pochoir et le masque (1.00 = pas d'étirement)
-const DILATION_ITERS = 2;      // tolérance du score
+<script>
+/* ===== Réglages ===== */
+const SIZE = 400;               // taille logique du canevas
+let LINE_WIDTH = 10;            // épaisseur du trait (modifiable)
+let STRETCH_Y = 1.05;           // 1.00 = pas d'étirement; 1.05 = +5% en hauteur
+const DILATION_ITERS = 2;       // tolérance du score
 
 let symbols = [];
 let current = null;
-let modelMask = null;          // Uint8Array binaire
-let drawScale = {dx:0, dy:0, dw:SIZE, dh:SIZE, scaleY:STRETCH_Y}; // zone où l'on dessine le stencil
+let modelMask = null;           // Uint8Array binaire
+let drawFit = {dx:0, dy:0, dw:SIZE, dh:SIZE}; // fit du stencil dans la boîte
 
-/* ====== Chargement des symboles ====== */
+/* ===== UI: sliders synchronisés ===== */
+const lw = document.getElementById('lw');
+const lw_n = document.getElementById('lw_n');
+function setLW(val){ LINE_WIDTH = Math.max(1, Number(val)||10); lw.value = LINE_WIDTH; lw_n.value = LINE_WIDTH; ctx.lineWidth = LINE_WIDTH; }
+lw.oninput = e => setLW(e.target.value);
+lw_n.oninput = e => setLW(e.target.value);
+
+const stretch = document.getElementById('stretch');
+const stretch_n = document.getElementById('stretch_n');
+function setStretch(val){
+  const pct = Math.max(50, Math.min(200, Number(val)||105));
+  STRETCH_Y = pct/100;
+  stretch.value = pct; stretch_n.value = pct;
+  if(current){ showStencil(current.file); svgToMask(current.file).then(m => modelMask = m); }
+}
+stretch.oninput = e => setStretch(e.target.value);
+stretch_n.oninput = e => setStretch(e.target.value);
+
+/* ===== Chargement des symboles ===== */
 fetch('symbols.json').then(r=>r.json()).then(j=>{
   symbols = j.symbols || [];
   buildGrid();
   if (symbols.length) selectSymbol(0);
 });
 
-/* ====== Grille ====== */
+/* ===== Grille ===== */
 function buildGrid(){
   const grid = document.getElementById('grid');
   grid.innerHTML = '';
@@ -81,52 +177,56 @@ function buildGrid(){
   });
 }
 
-/* ====== Calcul du rectangle d’affichage en respectant l’aspect ====== */
-function fitRect(nw, nh, boxW=SIZE, boxH=SIZE) {
-  // on met l'image (nw, nh) dans le cadre (boxW, boxH) en "contain"
-  const rImg = nw / nh, rBox = boxW / boxH;
+/* ===== Placement “contain” dans un carré ===== */
+function fitRect(imgW, imgH, boxW=SIZE, boxH=SIZE){
+  const rImg = imgW / Math.max(1,imgH), rBox = boxW / boxH;
   let dw, dh, dx, dy;
-  if (rImg > rBox) { // image plus large que le cadre
-    dw = boxW; dh = Math.round(dw / rImg);
-    dx = 0; dy = Math.round((boxH - dh) / 2);
-  } else {
-    dh = boxH; dw = Math.round(dh * rImg);
-    dx = Math.round((boxW - dw) / 2); dy = 0;
-  }
+  if (rImg > rBox){ dw = boxW; dh = Math.round(dw / rImg); dx = 0; dy = Math.round((boxH - dh)/2); }
+  else { dh = boxH; dw = Math.round(dh * rImg); dy = 0; dx = Math.round((boxW - dw)/2); }
   return {dx, dy, dw, dh};
 }
 
-/* ====== Convertir un SVG en masque binaire, avec respect d’aspect + étirement Y ====== */
+/* ===== Stencil visuel avec étirement Y ===== */
+function showStencil(url){
+  const img = document.getElementById('stencil');
+  img.onload = ()=>{
+    drawFit = fitRect(img.naturalWidth||SIZE, img.naturalHeight||SIZE, SIZE, SIZE);
+    img.style.left = drawFit.dx+'px';
+    img.style.top  = drawFit.dy+'px';
+    img.style.width  = drawFit.dw+'px';
+    img.style.height = drawFit.dh+'px';
+    img.style.transform = `scaleY(${STRETCH_Y})`;
+  };
+  img.src = url;
+}
+
+/* ===== SVG -> masque binaire (respect proportions + même étirement) ===== */
 async function svgToMask(url){
   return new Promise((resolve)=>{
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = ()=>{
-      // calcul du placement
-      const fit = fitRect(img.naturalWidth || SIZE, img.naturalHeight || SIZE, SIZE, SIZE);
-      drawScale = {...fit, scaleY: STRETCH_Y};
-
-      // rendu dans un canvas offscreen en respectant l’aspect et en étirant verticalement si demandé
+      const fit = fitRect(img.naturalWidth||SIZE, img.naturalHeight||SIZE, SIZE, SIZE);
       const off = document.createElement('canvas');
-      off.width = SIZE;
-      off.height = SIZE;
-      const ctx = off.getContext('2d');
-      ctx.fillStyle = '#fff'; ctx.fillRect(0,0,SIZE,SIZE);
-
-      // appliquer l’étirement vertical autour du centre de la zone dessinée
-      ctx.save();
+      off.width = SIZE; off.height = SIZE;
+      const ctx2 = off.getContext('2d');
+      // fond blanc pour éviter tout “noir” inattendu
+      ctx2.fillStyle = '#fff';
+      ctx2.fillRect(0,0,SIZE,SIZE);
+      // étirement Y autour du centre du fit
+      ctx2.save();
       const cy = fit.dy + fit.dh/2;
-      ctx.translate(0, cy);
-      ctx.scale(1, STRETCH_Y);
-      ctx.translate(0, -cy);
-      ctx.drawImage(img, fit.dx, fit.dy, fit.dw, fit.dh);
-      ctx.restore();
+      ctx2.translate(0, cy);
+      ctx2.scale(1, STRETCH_Y);
+      ctx2.translate(0, -cy);
+      ctx2.drawImage(img, fit.dx, fit.dy, fit.dw, fit.dh);
+      ctx2.restore();
 
-      const data = ctx.getImageData(0,0,SIZE,SIZE).data;
+      const data = ctx2.getImageData(0,0,SIZE,SIZE).data;
       const mask = new Uint8Array(SIZE*SIZE);
       for(let i=0, p=0; i<data.length; i+=4, p++){
         const lum = data[i]*0.2126 + data[i+1]*0.7152 + data[i+2]*0.0722;
-        mask[p] = (lum < 200) ? 1 : 0; // noir => 1
+        mask[p] = (lum < 200) ? 1 : 0;
       }
       resolve(mask);
     };
@@ -134,62 +234,46 @@ async function svgToMask(url){
   });
 }
 
-/* ====== Stencil visible (respect aspect + étirement visuel synchronisé) ====== */
-function showStencil(url){
-  const el = document.getElementById('stencil');
-  el.onload = ()=>{
-    const fit = fitRect(el.naturalWidth || SIZE, el.naturalHeight || SIZE, SIZE, SIZE);
-    // on positionne l'image par CSS
-    el.style.left = fit.dx+'px';
-    el.style.top  = fit.dy+'px';
-    el.style.width  = fit.dw+'px';
-    el.style.height = fit.dh+'px';
-    el.style.opacity = '.62';
-    // étirement vertical identique au masque
-    el.style.transformOrigin = '50% 50%';
-    el.style.transform = `scaleY(${STRETCH_Y})`;
-  };
-  el.src = url;
-}
-
-/* ====== Sélection d’un symbole ====== */
+/* ===== Sélection d’un symbole ===== */
 async function selectSymbol(idx){
   document.querySelectorAll('.tile').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tile')[idx]?.classList.add('active');
   current = symbols[idx];
   showStencil(current.file);
   modelMask = await svgToMask(current.file);
-  clearPad();
+  clearPad(true);
 }
 
-/* ====== Canvas HDPI + événements mobile-friendly ====== */
+/* ===== Canvas HDPI et mobile-friendly ===== */
 const pad = document.getElementById('pad');
-const ctx = pad.getContext('2d', {desynchronized: true});
-let drawing = false, last = null;
+const ctx = pad.getContext('2d', {desynchronized:true});
 
-// mise à l’échelle HDPI
 function setupCanvas(){
   const dpr = Math.max(1, window.devicePixelRatio || 1);
-  const displayW = SIZE, displayH = SIZE;
-  pad.style.width = displayW + 'px';
-  pad.style.height = displayH + 'px';
-  pad.width  = Math.round(displayW * dpr);
-  pad.height = Math.round(displayH * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // coord. en pixels CSS
-  ctx.lineWidth = 6;
+  // taille “CSS” fixée par l’attribut width/height + feuille de style
+  pad.width  = Math.round(SIZE * dpr);
+  pad.height = Math.round(SIZE * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // fond blanc explicite (évite l’effet canevas noir)
+  ctx.save();
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0,0,SIZE,SIZE);
+  ctx.restore();
   ctx.lineCap = 'round';
   ctx.strokeStyle = '#000';
+  ctx.lineWidth = LINE_WIDTH;
 }
 setupCanvas();
 window.addEventListener('resize', setupCanvas);
 
-// empêcher le scroll pendant le dessin sur mobile
+// mobile: ne pas scroller pendant le dessin
 pad.style.touchAction = 'none';
 pad.addEventListener('touchstart', e => e.preventDefault(), {passive:false});
 pad.addEventListener('touchmove',  e => e.preventDefault(), {passive:false});
 
-// pointer events unifiés
-pad.addEventListener('pointerdown', e => { pad.setPointerCapture(e.pointerId); drawing = true; last = getXY(e); });
+/* ===== Dessin pointer events ===== */
+let drawing = false, last = null;
+pad.addEventListener('pointerdown', e => { pad.setPointerCapture?.(e.pointerId); drawing = true; last = getXY(e); });
 pad.addEventListener('pointerup',   e => { drawing = false; last = null; });
 pad.addEventListener('pointercancel', e => { drawing = false; last = null; });
 pad.addEventListener('pointermove', e => {
@@ -203,7 +287,6 @@ pad.addEventListener('pointermove', e => {
   }
   last = {x,y};
 });
-
 function getXY(e){
   const r = pad.getBoundingClientRect();
   return {
@@ -212,14 +295,18 @@ function getXY(e){
   };
 }
 
-/* ====== Outils ====== */
-function clearPad(){
-  ctx.clearRect(0,0,SIZE,SIZE);
-  document.getElementById('out').textContent = '';
+/* ===== Outils ===== */
+function clearPad(init=false){
+  ctx.save();
+  ctx.setTransform(1,0,0,1,0,0); // reset pour remplir le fond en pixels réels
+  ctx.clearRect(0,0,pad.width,pad.height);
+  ctx.restore();
+  setupCanvas();
+  if(!init) document.getElementById('out').style.display = 'none';
 }
-document.getElementById('clear').onclick = clearPad;
+document.getElementById('clear').onclick = ()=>clearPad();
 
-/* ====== Score (Dice avec légère dilation) ====== */
+/* ===== Score (Dice + dilation) ===== */
 document.getElementById('eval').onclick = ()=>{
   const userMask = canvasToMask();
   const m = dilate(modelMask, SIZE, DILATION_ITERS);
@@ -229,17 +316,16 @@ document.getElementById('eval').onclick = ()=>{
   const denom = sumU + sumM;
   const dice = denom ? (2*inter/denom) : 0;
   const msg = dice>=0.85 ? 'Très bien.' : (dice>=0.65 ? 'Correct.' : 'À retravailler.');
-  document.getElementById('out').textContent = `Score: ${(dice*100).toFixed(1)}% — ${msg}`;
+  const out = document.getElementById('out');
+  out.textContent = `Score: ${(dice*100).toFixed(1)}% — ${msg}`;
+  out.style.display = 'inline-block';
 };
-
 function canvasToMask(){
-  const dpr = Math.max(1, window.devicePixelRatio || 1);
-  // On lit en pixels CSS, pas en pixels réels (transform appliquée)
-  const img = ctx.getImageData(0,0,SIZE,SIZE);
-  const data = img.data;
+  // lit en pixels CSS (dpr géré par setTransform)
+  const img = ctx.getImageData(0,0,SIZE,SIZE).data;
   const mask = new Uint8Array(SIZE*SIZE);
-  for(let i=0, p=0;i<data.length;i+=4,p++){
-    const lum = data[i]*0.2126 + data[i+1]*0.7152 + data[i+2]*0.0722;
+  for(let i=0, p=0;i<img.length;i+=4,p++){
+    const lum = img[i]*0.2126 + img[i+1]*0.7152 + img[i+2]*0.0722;
     mask[p] = (lum < 200) ? 1 : 0;
   }
   return mask;
@@ -261,6 +347,10 @@ function dilate(mask, size, iters){
   }
   return out;
 }
-          </script>
+
+/* init contrôles */
+setLW(LINE_WIDTH);
+setStretch(Math.round(STRETCH_Y*100));
+</script>
 </body>
 </html>
