@@ -47,55 +47,81 @@
   </div>
 </main>
 
-<script>
-const SIZE = 400;
+
+  <script>
+/* ====== Réglages ====== */
+const SIZE = 400;              // taille CSS du canvas
+const STRETCH_Y = 1.10;        // étirer verticalement le pochoir et le masque (1.00 = pas d'étirement)
+const DILATION_ITERS = 2;      // tolérance du score
+
 let symbols = [];
 let current = null;
-let modelMask = null; // Uint8Array binaire
-// Chargement des symboles
+let modelMask = null;          // Uint8Array binaire
+let drawScale = {dx:0, dy:0, dw:SIZE, dh:SIZE, scaleY:STRETCH_Y}; // zone où l'on dessine le stencil
+
+/* ====== Chargement des symboles ====== */
 fetch('symbols.json').then(r=>r.json()).then(j=>{
   symbols = j.symbols || [];
   buildGrid();
-  if(symbols.length){ selectSymbol(0); }
+  if (symbols.length) selectSymbol(0);
 });
 
+/* ====== Grille ====== */
 function buildGrid(){
   const grid = document.getElementById('grid');
   grid.innerHTML = '';
   symbols.forEach((s, i)=>{
-    const div = document.createElement('div');
-    div.className = 'tile';
+    const tile = document.createElement('div');
+    tile.className = 'tile';
     const img = document.createElement('img');
-    img.src = s.file;
-    img.alt = s.ch;
-    div.appendChild(img);
-    div.addEventListener('click', ()=>selectSymbol(i));
-    grid.appendChild(div);
+    img.src = s.file; img.alt = s.ch;
+    tile.appendChild(img);
+    tile.addEventListener('click', ()=>selectSymbol(i));
+    grid.appendChild(tile);
   });
 }
 
-async function selectSymbol(idx){
-  const tiles = document.querySelectorAll('.tile');
-  tiles.forEach(t=>t.classList.remove('active'));
-  tiles[idx]?.classList.add('active');
-
-  current = symbols[idx];
-  document.getElementById('stencil').src = current.file;
-  modelMask = await svgToMask(current.file);
-  clearPad();
+/* ====== Calcul du rectangle d’affichage en respectant l’aspect ====== */
+function fitRect(nw, nh, boxW=SIZE, boxH=SIZE) {
+  // on met l'image (nw, nh) dans le cadre (boxW, boxH) en "contain"
+  const rImg = nw / nh, rBox = boxW / boxH;
+  let dw, dh, dx, dy;
+  if (rImg > rBox) { // image plus large que le cadre
+    dw = boxW; dh = Math.round(dw / rImg);
+    dx = 0; dy = Math.round((boxH - dh) / 2);
+  } else {
+    dh = boxH; dw = Math.round(dh * rImg);
+    dx = Math.round((boxW - dw) / 2); dy = 0;
+  }
+  return {dx, dy, dw, dh};
 }
 
-// Convertit le SVG en masque binaire via un canvas offscreen
+/* ====== Convertir un SVG en masque binaire, avec respect d’aspect + étirement Y ====== */
 async function svgToMask(url){
   return new Promise((resolve)=>{
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = ()=>{
-      const cvs = document.createElement('canvas');
-      cvs.width = SIZE; cvs.height = SIZE;
-      const ctx = cvs.getContext('2d');
+      // calcul du placement
+      const fit = fitRect(img.naturalWidth || SIZE, img.naturalHeight || SIZE, SIZE, SIZE);
+      drawScale = {...fit, scaleY: STRETCH_Y};
+
+      // rendu dans un canvas offscreen en respectant l’aspect et en étirant verticalement si demandé
+      const off = document.createElement('canvas');
+      off.width = SIZE;
+      off.height = SIZE;
+      const ctx = off.getContext('2d');
       ctx.fillStyle = '#fff'; ctx.fillRect(0,0,SIZE,SIZE);
-      ctx.drawImage(img,0,0,SIZE,SIZE);
+
+      // appliquer l’étirement vertical autour du centre de la zone dessinée
+      ctx.save();
+      const cy = fit.dy + fit.dh/2;
+      ctx.translate(0, cy);
+      ctx.scale(1, STRETCH_Y);
+      ctx.translate(0, -cy);
+      ctx.drawImage(img, fit.dx, fit.dy, fit.dw, fit.dh);
+      ctx.restore();
+
       const data = ctx.getImageData(0,0,SIZE,SIZE).data;
       const mask = new Uint8Array(SIZE*SIZE);
       for(let i=0, p=0; i<data.length; i+=4, p++){
@@ -108,63 +134,116 @@ async function svgToMask(url){
   });
 }
 
-// Canvas de dessin
-const pad = document.getElementById('pad');
-const ctx = pad.getContext('2d');
-ctx.lineWidth = 6;
-ctx.lineCap = 'round';
-ctx.strokeStyle = '#000';
+/* ====== Stencil visible (respect aspect + étirement visuel synchronisé) ====== */
+function showStencil(url){
+  const el = document.getElementById('stencil');
+  el.onload = ()=>{
+    const fit = fitRect(el.naturalWidth || SIZE, el.naturalHeight || SIZE, SIZE, SIZE);
+    // on positionne l'image par CSS
+    el.style.left = fit.dx+'px';
+    el.style.top  = fit.dy+'px';
+    el.style.width  = fit.dw+'px';
+    el.style.height = fit.dh+'px';
+    el.style.opacity = '.62';
+    // étirement vertical identique au masque
+    el.style.transformOrigin = '50% 50%';
+    el.style.transform = `scaleY(${STRETCH_Y})`;
+  };
+  el.src = url;
+}
 
+/* ====== Sélection d’un symbole ====== */
+async function selectSymbol(idx){
+  document.querySelectorAll('.tile').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tile')[idx]?.classList.add('active');
+  current = symbols[idx];
+  showStencil(current.file);
+  modelMask = await svgToMask(current.file);
+  clearPad();
+}
+
+/* ====== Canvas HDPI + événements mobile-friendly ====== */
+const pad = document.getElementById('pad');
+const ctx = pad.getContext('2d', {desynchronized: true});
 let drawing = false, last = null;
-pad.addEventListener('pointerdown', e => { drawing = true; last = getXY(e); });
+
+// mise à l’échelle HDPI
+function setupCanvas(){
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const displayW = SIZE, displayH = SIZE;
+  pad.style.width = displayW + 'px';
+  pad.style.height = displayH + 'px';
+  pad.width  = Math.round(displayW * dpr);
+  pad.height = Math.round(displayH * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // coord. en pixels CSS
+  ctx.lineWidth = 6;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#000';
+}
+setupCanvas();
+window.addEventListener('resize', setupCanvas);
+
+// empêcher le scroll pendant le dessin sur mobile
+pad.style.touchAction = 'none';
+pad.addEventListener('touchstart', e => e.preventDefault(), {passive:false});
+pad.addEventListener('touchmove',  e => e.preventDefault(), {passive:false});
+
+// pointer events unifiés
+pad.addEventListener('pointerdown', e => { pad.setPointerCapture(e.pointerId); drawing = true; last = getXY(e); });
 pad.addEventListener('pointerup',   e => { drawing = false; last = null; });
-pad.addEventListener('pointerleave',e => { drawing = false; last = null; });
+pad.addEventListener('pointercancel', e => { drawing = false; last = null; });
 pad.addEventListener('pointermove', e => {
   if(!drawing) return;
   const {x,y} = getXY(e);
   if(last){
     ctx.beginPath();
     ctx.moveTo(last.x, last.y);
-    ctx.lineTo(x,y);
+    ctx.lineTo(x, y);
     ctx.stroke();
   }
   last = {x,y};
 });
+
 function getXY(e){
   const r = pad.getBoundingClientRect();
-  return { x: Math.round((e.clientX - r.left) * SIZE / r.width),
-           y: Math.round((e.clientY - r.top)  * SIZE / r.height) };
+  return {
+    x: Math.round((e.clientX - r.left) * (SIZE / r.width)),
+    y: Math.round((e.clientY - r.top)  * (SIZE / r.height))
+  };
 }
+
+/* ====== Outils ====== */
 function clearPad(){
   ctx.clearRect(0,0,SIZE,SIZE);
   document.getElementById('out').textContent = '';
 }
 document.getElementById('clear').onclick = clearPad;
 
-// Évaluation: Dice coefficient avec légère dilation sur le modèle
-function evaluate(){
+/* ====== Score (Dice avec légère dilation) ====== */
+document.getElementById('eval').onclick = ()=>{
   const userMask = canvasToMask();
-  const m = dilate(modelMask, SIZE, 2);
+  const m = dilate(modelMask, SIZE, DILATION_ITERS);
   const inter = intersect(userMask, m);
   const sumU = sum(userMask);
-  const sumM = sum(flat(modelMask));
+  const sumM = sum(modelMask);
   const denom = sumU + sumM;
   const dice = denom ? (2*inter/denom) : 0;
-  let msg = dice>=0.85 ? 'Très bien.' : (dice>=0.65 ? 'Correct.' : 'À retravailler.');
+  const msg = dice>=0.85 ? 'Très bien.' : (dice>=0.65 ? 'Correct.' : 'À retravailler.');
   document.getElementById('out').textContent = `Score: ${(dice*100).toFixed(1)}% — ${msg}`;
-}
-document.getElementById('eval').onclick = evaluate;
+};
 
 function canvasToMask(){
-  const data = ctx.getImageData(0,0,SIZE,SIZE).data;
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  // On lit en pixels CSS, pas en pixels réels (transform appliquée)
+  const img = ctx.getImageData(0,0,SIZE,SIZE);
+  const data = img.data;
   const mask = new Uint8Array(SIZE*SIZE);
-  for(let i=0, p=0; i<data.length; i+=4, p++){
+  for(let i=0, p=0;i<data.length;i+=4,p++){
     const lum = data[i]*0.2126 + data[i+1]*0.7152 + data[i+2]*0.0722;
     mask[p] = (lum < 200) ? 1 : 0;
   }
   return mask;
 }
-function flat(m){ return m; }
 function sum(m){ let s=0; for(let i=0;i<m.length;i++) s+=m[i]; return s; }
 function intersect(a,b){ let s=0; for(let i=0;i<a.length;i++) s += (a[i] && b[i]) ? 1 : 0; return s; }
 function dilate(mask, size, iters){
@@ -173,7 +252,7 @@ function dilate(mask, size, iters){
     const next = out.slice();
     for(let y=1;y<size-1;y++){
       for(let x=1;x<size-1;x++){
-        const i = y*size+x;
+        const i = y*size + x;
         if(out[i]) { next[i]=1; continue; }
         if(out[i-1]||out[i+1]||out[i-size]||out[i+size]) next[i]=1;
       }
@@ -182,6 +261,6 @@ function dilate(mask, size, iters){
   }
   return out;
 }
-</script>
+          </script>
 </body>
 </html>
