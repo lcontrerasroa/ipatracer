@@ -74,7 +74,6 @@
     <div class="card">
       <h3>Pochoir</h3>
       <div id="stencilBox" class="stage"><img id="stencil" alt="stencil"></div>
-      <p class="muted">Les pochoirs Andika sont exportés à échelle uniforme. Tu peux ajuster l’étirement Y si besoin.</p>
     </div>
 
     <div class="card">
@@ -85,7 +84,6 @@
         <button id="clear" class="btn clear">Effacer</button>
         <div id="out" class="score" style="display:none"></div>
       </div>
-      <p class="muted">Sur mobile: le dessin ne déclenche plus le scroll, et le trait est net sur écran HDPI.</p>
     </div>
   </div>
 </main>
@@ -93,7 +91,7 @@
 <script>
 /* ===== Réglages globaux ===== */
 const SIZE = 400;
-let LINE_WIDTH = 12;     // trait
+let LINE_WIDTH = 18;     // trait
 let STRETCH_Y = 1.00;    // pas d’étirement par défaut
 let THRESH = 235;        // seuil de binarisation (plus haut = plus tolérant)
 let DILATION_ITERS = 3;  // tolérance du score
