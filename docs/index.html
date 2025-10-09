@@ -90,6 +90,18 @@
 
     </div>
 
+    <!-- Grille par-dessus le pochoir -->
+<div id="stencilBox" class="stage">
+  <img id="stencil" alt="stencil">
+  <div id="gridOverlayStencil"></div>
+</div>
+
+<!-- Grille par-dessus le canevas -->
+<div class="stage">
+  <canvas id="pad" width="400" height="400"></canvas>
+  <div id="gridOverlayCanvas"></div>
+</div>
+
     <div class="card">
       <h3>À toi de tracer</h3>
       <div class="stage"><canvas id="pad" width="400" height="400"></canvas></div>
@@ -212,18 +224,6 @@ function setupCanvas(){
   ctx.lineCap='round'; ctx.strokeStyle='#000'; ctx.lineWidth = LINE_WIDTH;
 }
 setupCanvas(); window.addEventListener('resize', setupCanvas);
-
-<!-- Grille par-dessus le pochoir -->
-<div id="stencilBox" class="stage">
-  <img id="stencil" alt="stencil">
-  <div id="gridOverlayStencil"></div>
-</div>
-
-<!-- Grille par-dessus le canevas -->
-<div class="stage">
-  <canvas id="pad" width="400" height="400"></canvas>
-  <div id="gridOverlayCanvas"></div>
-</div>
 
   
 // mobile: pas de scroll pendant le dessin
