@@ -34,8 +34,20 @@
   .stage{position:relative;width:400px;max-width:100%;margin:0 auto}
   #stencilBox{position:relative;width:100%;padding-top:100%}
   #stencil{position:absolute;left:0;top:0;width:100%;height:100%;opacity:.55;image-rendering:pixelated}
+  /* === Ajout: Grille sur le stencil === */
+  #gridOverlayStencil,
+  #gridOverlayCanvas{
+    position:absolute;
+    left:0; top:0;
+    width:100%; height:100%;
+    pointer-events:none; /* ne gêne pas le dessin */
+    background-image:
+      linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px);
+    background-size:10% 10%; /* espacement 10% du carré */
+  }
   canvas{width:100%;height:auto;background:#fff;border-radius:12px;border:1px solid var(--border);
-         box-shadow:inset 0 0 0 1px rgba(15,23,42,.02);touch-action:none}
+         box-shadow:inset 0 0 0 1px rgba(15,23,42,.02);touch-action:none;position:relative}
   .row{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:10px;flex-wrap:wrap}
   .btn{padding:10px 14px;border:none;border-radius:12px;color:#fff;cursor:pointer;box-shadow:0 2px 6px rgba(99,102,241,.18);font-weight:600}
   .btn.eval{background:linear-gradient(180deg,var(--accent),#3b82f6)}
@@ -43,11 +55,12 @@
   .score{font-weight:700;color:var(--good);background:linear-gradient(180deg,var(--p3),#a7f3d0);border:1px solid #99f6e4;border-radius:999px;padding:8px 12px}
   .muted{color:var(--muted);font-size:13px;text-align:center;margin-top:6px}
 </style>
+
 </head>
 <body>
 <header class="wrap">
   <h1>Tracer l’API — Andika (pochoirs remplis)</h1>
-  <p>Choisis un symbole, trace par-dessus le pochoir noir (rempli), puis évalue. Scores plus justes, trait plus épais. Aucun diacritique ici.</p>
+  <p>Choisis un symbole, et trace-le sur le canevas à côté. Tu peux régler l'épaisseur du tracé et l'exigence de l'évaluation avec les réglages.</p>
   <div class="controls">
     <div class="chip">
       <label for="lw">Épaisseur du trait</label>
@@ -74,7 +87,7 @@
     <div class="card">
       <h3>Pochoir</h3>
       <div id="stencilBox" class="stage"><img id="stencil" alt="stencil"></div>
-      <p class="muted">Pochoirs **remplis** (Andika). Ce que tu vois est ce qui est évalué.</p>
+
     </div>
 
     <div class="card">
@@ -85,7 +98,7 @@
         <button id="clear" class="btn clear">Effacer</button>
         <div id="out" class="score" style="display:none"></div>
       </div>
-      <p class="muted">Mobile: pas de scroll pendant le dessin; trait net sur écrans HDPI.</p>
+
     </div>
   </div>
 </main>
@@ -200,6 +213,19 @@ function setupCanvas(){
 }
 setupCanvas(); window.addEventListener('resize', setupCanvas);
 
+<!-- Grille par-dessus le pochoir -->
+<div id="stencilBox" class="stage">
+  <img id="stencil" alt="stencil">
+  <div id="gridOverlayStencil"></div>
+</div>
+
+<!-- Grille par-dessus le canevas -->
+<div class="stage">
+  <canvas id="pad" width="400" height="400"></canvas>
+  <div id="gridOverlayCanvas"></div>
+</div>
+
+  
 // mobile: pas de scroll pendant le dessin
 pad.style.touchAction='none';
 pad.addEventListener('touchstart', e=>e.preventDefault(), {passive:false});
