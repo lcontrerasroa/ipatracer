@@ -30,7 +30,7 @@ ipatracer/
 │ ├── svgs/ ← pochoirs SVG exportés (police Andika)
 │ └── fonts/ ← (optionnel) polices locales .woff2 si hébergées
 ├── README.md ← you are here
-└── ipatrace.ipynb ←carnet python crée sur Google Colab pour la création des pochoirs
+└── ipatrace.py ←script python crée sur Google Colab pour la création des pochoirs
 
 
 > Le site est servi directement depuis le dossier `docs/` grâce à GitHub Pages.
