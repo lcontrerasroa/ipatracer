@@ -3,43 +3,39 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tracer l’API</title>
+<title>IPA tracer</title>
 <style>
   :root{
     --bg:#f8fafc; --card:#fff; --ink:#0f172a; --muted:#475569; --border:#e2e8f0;
-    --p1:#e0f2fe; --p2:#eef2ff; --p3:#dcfce7; --accent:#60a5fa; --accent2:#a78bfa; --good:#0b7669;
+    --accent:#60a5fa; --accent2:#a78bfa; --good:#0b7669;
   }
   *{box-sizing:border-box}
   body{margin:0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
-  header{padding:14px 12px;text-align:center}
-  header h1{margin:.2rem 0 0;font-size:clamp(18px,4.2vw,26px);font-weight:800}
-  header p{margin:.2rem 0;color:var(--muted);font-size:clamp(12px,2.8vw,15px)}
-  .wrap{max-width:1100px;margin:0 auto;padding:0 12px 20px}
-  .controls{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:6px auto 12px}
-  .chip{display:flex;align-items:center;gap:8px;background:linear-gradient(180deg,var(--p2),var(--p1));
+  header{padding:10px 12px;text-align:center}
+  header h1{margin:0;font-size:clamp(18px,4.2vw,26px);font-weight:800}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 12px 16px}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:8px auto}
+  .chip{display:flex;align-items:center;gap:8px;background:linear-gradient(180deg,#eef2ff,#e0f2fe);
         border:1px solid var(--border);border-radius:999px;padding:6px 10px}
   .chip label{font-size:12px;color:var(--muted)}
-  .chip input[type="range"]{accent-color:var(--accent);width:120px}
+  .chip input[type="range"]{accent-color:var(--accent);width:140px}
   .chip input[type="number"]{width:56px;padding:3px 6px;border:1px solid var(--border);border-radius:8px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:8px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px}
   .tile{background:var(--card);border:1px solid var(--border);border-radius:12px;display:grid;place-items:center;
         aspect-ratio:1/1;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.06);transition:transform .06s, box-shadow .06s}
   .tile:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(15,23,42,.06)}
   .tile.active{outline:2px solid var(--accent)}
-  .tile img{width:56px;height:56px;filter:grayscale(.08)}
-  /* Deux colonnes même sur mobile, tailles adaptées */
-  .panel{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;margin-top:12px}
+  .tile img{width:54px;height:54px;filter:grayscale(.08)}
+  .panel{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;margin-top:10px}
   @media (min-width:860px){ .panel{gap:18px} .tile img{width:68px;height:68px} }
   .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:10px;box-shadow:0 1px 2px rgba(15,23,42,.06)}
-  .card h3{margin:.25rem 0 .5rem;font-size:14px;color:var(--muted);font-weight:700}
-  /* Stage carré: sur mobile ~44vw, sur desktop plafonné */
+  .card h3{margin:0 0 .5rem;font-size:14px;color:var(--muted);font-weight:700}
   .stage{position:relative;width:min(44vw, 420px);max-width:100%;margin:0 auto}
   @media (min-width:860px){ .stage{width:400px} }
   #stencilBox{position:relative;width:100%;padding-top:100%}
   #stencil{position:absolute;left:0;top:0;width:100%;height:100%;opacity:.55;image-rendering:pixelated}
   #gridOverlayStencil, #gridOverlayCanvas{
-    position:absolute; left:0; top:0; width:100%; height:100%;
-    pointer-events:none;
+    position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none;
     background-image:
       linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px),
       linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px);
@@ -51,28 +47,17 @@
   .btn{padding:9px 12px;border:none;border-radius:12px;color:#fff;cursor:pointer;box-shadow:0 2px 6px rgba(99,102,241,.18);font-weight:600;font-size:14px}
   .btn.eval{background:linear-gradient(180deg,var(--accent),#3b82f6)}
   .btn.clear{background:linear-gradient(180deg,#a5b4fc,var(--accent2))}
-  .score{font-weight:700;color:var(--good);background:linear-gradient(180deg,var(--p3),#a7f3d0);border:1px solid #99f6e4;border-radius:999px;padding:6px 10px;font-size:14px}
-  .muted{color:var(--muted);font-size:12px;text-align:center;margin-top:6px}
+  .score{font-weight:700;color:#0b7669;background:linear-gradient(180deg,#dcfce7,#bbf7d0);border:1px solid #99f6e4;border-radius:999px;padding:6px 10px;font-size:14px;display:none}
 </style>
 </head>
 <body>
 <header class="wrap">
-  <h1>Tracer l’API</h1>
-    <div class="controls">
+  <h1>IPA tracer</h1>
+  <div class="controls">
     <div class="chip">
-      <label for="lw">Épaisseur</label>
+      <label for="lw">Stroke</label>
       <input id="lw" type="range" min="4" max="36" value="16">
       <input id="lw_n" type="number" min="4" max="72" value="16">
-    </div>
-    <div class="chip">
-      <label for="th">Seuil noir</label>
-      <input id="th" type="range" min="180" max="255" value="235">
-      <input id="th_n" type="number" min="180" max="255" value="235">
-    </div>
-    <div class="chip">
-      <label for="dil">Tolérance</label>
-      <input id="dil" type="range" min="0" max="4" value="2">
-      <input id="dil_n" type="number" min="0" max="8" value="2">
     </div>
   </div>
 </header>
@@ -82,65 +67,61 @@
 
   <div class="panel">
     <div class="card">
-      <h3>Pochoir</h3>
+      <h3>Stencil</h3>
       <div id="stencilBox" class="stage">
         <img id="stencil" alt="stencil">
         <div id="gridOverlayStencil"></div>
       </div>
-      <p class="muted">Pochoirs **remplis** (Andika). Ce que tu vois est ce qui est évalué.</p>
     </div>
 
     <div class="card">
-      <h3>À toi de tracer</h3>
+      <h3>Draw</h3>
       <div class="stage">
         <canvas id="pad"></canvas>
         <div id="gridOverlayCanvas"></div>
       </div>
       <div class="row">
-        <button id="eval" class="btn eval">Évaluer</button>
-        <button id="clear" class="btn clear">Effacer</button>
-        <div id="out" class="score" style="display:none"></div>
+        <button id="eval" class="btn eval">Evaluate</button>
+        <button id="clear" class="btn clear">Clear</button>
+        <div id="out" class="score"></div>
       </div>
     </div>
   </div>
 </main>
 
 <script>
-/* ===== Réglages ===== */
-let LINE_WIDTH = 16;
-let THRESH = 235;
-let DILATION_ITERS = 2;
+/* ===== Cache-busting ===== */
+const BUST = 'b=' + Date.now();
 
-let SIZE = 300;          // sera recalculé dynamiquement
-let symbols = [];        // {ch, file}
+/* ===== Defaults (simples pour étudiants) ===== */
+let LINE_WIDTH = 16;          // trait
+const THRESH = 235;           // seuil binaire
+const DILATION_ITERS = 2;     // tolérance
+
+/* ===== Taille dynamique ===== */
+let SIZE = 300;               // recalculé par getStageSize()
+
+/* ===== État ===== */
+let symbols = [];             // {ch, file}
 let current = null;
 let modelMask = null;
 
-/* ===== UI sliders ===== */
+/* ===== Stroke UI ===== */
 const lw = document.getElementById('lw'), lw_n = document.getElementById('lw_n');
-function setLW(v){ LINE_WIDTH = Math.max(1, Number(v)||16); lw.value=LINE_WIDTH; lw_n.value=LINE_WIDTH; ctx && (ctx.lineWidth = LINE_WIDTH); }
+function setLW(v){ LINE_WIDTH = Math.max(1, Number(v)||16); lw.value=LINE_WIDTH; lw_n.value=LINE_WIDTH; if (ctx) ctx.lineWidth = LINE_WIDTH; }
 lw.oninput = e=>setLW(e.target.value); lw_n.oninput = e=>setLW(e.target.value);
 
-const th = document.getElementById('th'), th_n = document.getElementById('th_n');
-function setTH(v){ const x = Math.max(150, Math.min(255, Number(v)||235)); THRESH=x; th.value=x; th_n.value=x; if(current) svgToMask(current.file).then(m=>modelMask=m); }
-th.oninput = e=>setTH(e.target.value); th_n.oninput = e=>setTH(e.target.value);
-
-const dil = document.getElementById('dil'), dil_n = document.getElementById('dil_n');
-function setDIL(v){ const x = Math.max(0, Math.min(8, Number(v)||2)); DILATION_ITERS=x; dil.value=x; dil_n.value=x; }
-dil.oninput = e=>setDIL(e.target.value); dil_n.oninput = e=>setDIL(e.target.value);
-
-/* ===== Liste des symboles ===== */
-fetch('symbols.json').then(r=>r.json()).then(j=>{
+/* ===== Charger la liste ===== */
+fetch('symbols.json?'+BUST).then(r=>r.json()).then(j=>{
   symbols = (j.symbols||[]).filter(s => (s.file||'').includes('svgs/'));
-  buildGrid();
-  if(symbols.length) selectSymbol(0);
+  buildGrid(); if(symbols.length) selectSymbol(0);
 }).catch(()=>{ document.getElementById('grid').textContent = "symbols.json introuvable"; });
 
 function buildGrid(){
   const grid = document.getElementById('grid'); grid.innerHTML = '';
   symbols.forEach((s,i)=>{
     const t = document.createElement('div'); t.className='tile';
-    const img = document.createElement('img'); img.src = s.file; img.alt = s.ch;
+    const img = document.createElement('img'); img.src = s.file + '?' + BUST; img.alt = s.ch;
     img.onerror = ()=>{ img.style.opacity=.4; img.alt='?'; };
     t.appendChild(img); t.addEventListener('click', ()=>selectSymbol(i));
     grid.appendChild(t);
@@ -160,12 +141,12 @@ function fitRect(imgW, imgH, boxW=SIZE, boxH=SIZE){
 function showStencil(url){
   const img = document.getElementById('stencil');
   img.onload = ()=>{
-    const size = getStageSize(); // met à jour SIZE
+    const size = getStageSize();
     const fit = fitRect(img.naturalWidth||size, img.naturalHeight||size, size, size);
     img.style.left = fit.dx+'px'; img.style.top = fit.dy+'px';
     img.style.width = fit.dw+'px'; img.style.height = fit.dh+'px';
   };
-  img.src = url;
+  img.src = url + '?' + BUST;
 }
 
 /* ===== SVG -> masque ===== */
@@ -187,7 +168,7 @@ async function svgToMask(url){
       }
       resolve(mask);
     };
-    img.src = url;
+    img.src = url + '?' + BUST;
   });
 }
 
@@ -201,7 +182,7 @@ async function selectSymbol(idx){
   clearPad(true);
 }
 
-/* ===== Canvas HDPI (taille dynamique) ===== */
+/* ===== Canvas HDPI dynamique ===== */
 const pad = document.getElementById('pad');
 const ctx  = pad.getContext('2d', {desynchronized:true});
 
@@ -209,10 +190,8 @@ function getStageSize(){
   const stages = Array.from(document.querySelectorAll('.stage'));
   const w = Math.max(200, Math.min(420, Math.floor(Math.min(...stages.map(s => s.getBoundingClientRect().width)) || 300)));
   SIZE = w;
-  // ajuste la taille visible de la grille (elle est 100% du conteneur)
   return w;
 }
-
 function setupCanvas(){
   const size = getStageSize();
   const dpr = Math.max(1, window.devicePixelRatio||1);
@@ -228,7 +207,6 @@ setupCanvas();
 window.addEventListener('resize', ()=>{
   const prevSize = SIZE;
   setupCanvas();
-  // si la taille a changé, on régénère le masque du pochoir pour rester alignés
   if (current && SIZE !== prevSize){
     showStencil(current.file);
     svgToMask(current.file).then(m=>modelMask=m);
@@ -272,12 +250,16 @@ document.getElementById('eval').onclick = ()=>{
   const sumU = sum(userMask), sumM = sum(modelMask);
   const denom = sumU + sumM;
   const dice = denom ? (2*inter/denom) : 0;
-  const msg = dice>=.65 ? 'Yay!' : (dice>=.35 ? 'Getting there!' : 'You can do better!');
+
+  let text;
+  if (dice <= 0.35) text = "You can do better!";
+  else if (dice <= 0.60) text = "Getting there!";
+  else text = "Yay!!";
+
   const out = document.getElementById('out');
-  out.textContent = `Score: ${(dice*100).toFixed(1)}% — ${msg}`;
+  out.textContent = `${(dice*100).toFixed(1)}% — ${text}`;
   out.style.display='inline-block';
 };
-
 function canvasToMask(){
   const size = SIZE;
   const data = ctx.getImageData(0,0,size,size).data;
@@ -307,9 +289,8 @@ function dilate(mask,size,it){
   return out;
 }
 
-/* init contrôles */
-const padCtx = document.getElementById('pad').getContext('2d'); // force init de ctx avant sliders
-setLW(LINE_WIDTH); setTH(THRESH); setDIL(DILATION_ITERS);
+/* init */
+setLW(LINE_WIDTH);
 </script>
 </body>
 </html>
