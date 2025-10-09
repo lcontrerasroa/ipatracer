@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tracer l’API — version statique</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin:0; font:16px system-ui, sans-serif; background:#0b0c10; color:#eaeaea; }
+  header { padding:16px 20px; text-align:center; }
+  .wrap { max-width:1100px; margin:0 auto; padding:0 16px 24px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(72px,1fr)); gap:10px; }
+  .tile { display:grid; place-items:center; aspect-ratio:1/1; background:#111418; border:1px solid #222; border-radius:10px; cursor:pointer; }
+  .tile img { width:60px; height:60px; filter:grayscale(0.2); }
+  .tile.active { outline:2px solid #2563eb; }
+  .panel { display:grid; grid-template-columns:400px 420px; gap:16px; align-items:start; }
+  .card { background:#111418; border:1px solid #222; border-radius:12px; padding:12px; }
+  canvas { background:#fff; border-radius:8px; border:1px solid #ddd; }
+  .btn { padding:10px 14px; background:#2563eb; color:#fff; border:none; border-radius:10px; cursor:pointer; }
+  .row { display:flex; gap:10px; align-items:center; }
+  .score { font-weight:600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Tracer l’API — version statique</h1>
+  <p>Choisis un symbole, trace par-dessus le pochoir, puis <em>Évaluer</em>.</p>
+</header>
+<main class="wrap">
+  <div id="grid" class="grid"></div>
+  <div class="panel" style="margin-top:18px;">
+    <div class="card">
+      <h3>Pochoir</h3>
+      <div id="stencilBox" style="position:relative;width:400px;height:400px;">
+        <img id="stencil" alt="stencil" style="position:absolute;left:0;top:0;width:400px;height:400px;opacity:.62;image-rendering:pixelated;">
+      </div>
+    </div>
+    <div class="card">
+      <h3>À toi de tracer</h3>
+      <canvas id="pad" width="400" height="400"></canvas>
+      <div class="row" style="margin-top:10px;">
+        <button id="eval" class="btn">Évaluer</button>
+        <button id="clear" class="btn" style="background:#475569;">Effacer</button>
+        <div id="out" class="score"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const SIZE = 400;
+let symbols = [];
+let current = null;
+let modelMask = null; // Uint8Array binaire
+// Chargement des symboles
+fetch('symbols.json').then(r=>r.json()).then(j=>{
+  symbols = j.symbols || [];
+  buildGrid();
+  if(symbols.length){ selectSymbol(0); }
+});
+
+function buildGrid(){
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  symbols.forEach((s, i)=>{
+    const div = document.createElement('div');
+    div.className = 'tile';
+    const img = document.createElement('img');
+    img.src = s.file;
+    img.alt = s.ch;
+    div.appendChild(img);
+    div.addEventListener('click', ()=>selectSymbol(i));
+    grid.appendChild(div);
+  });
+}
+
+async function selectSymbol(idx){
+  const tiles = document.querySelectorAll('.tile');
+  tiles.forEach(t=>t.classList.remove('active'));
+  tiles[idx]?.classList.add('active');
+
+  current = symbols[idx];
+  document.getElementById('stencil').src = current.file;
+  modelMask = await svgToMask(current.file);
+  clearPad();
+}
+
+// Convertit le SVG en masque binaire via un canvas offscreen
+async function svgToMask(url){
+  return new Promise((resolve)=>{
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = ()=>{
+      const cvs = document.createElement('canvas');
+      cvs.width = SIZE; cvs.height = SIZE;
+      const ctx = cvs.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0,0,SIZE,SIZE);
+      ctx.drawImage(img,0,0,SIZE,SIZE);
+      const data = ctx.getImageData(0,0,SIZE,SIZE).data;
+      const mask = new Uint8Array(SIZE*SIZE);
+      for(let i=0, p=0; i<data.length; i+=4, p++){
+        const lum = data[i]*0.2126 + data[i+1]*0.7152 + data[i+2]*0.0722;
+        mask[p] = (lum < 200) ? 1 : 0; // noir => 1
+      }
+      resolve(mask);
+    };
+    img.src = url;
+  });
+}
+
+// Canvas de dessin
+const pad = document.getElementById('pad');
+const ctx = pad.getContext('2d');
+ctx.lineWidth = 6;
+ctx.lineCap = 'round';
+ctx.strokeStyle = '#000';
+
+let drawing = false, last = null;
+pad.addEventListener('pointerdown', e => { drawing = true; last = getXY(e); });
+pad.addEventListener('pointerup',   e => { drawing = false; last = null; });
+pad.addEventListener('pointerleave',e => { drawing = false; last = null; });
+pad.addEventListener('pointermove', e => {
+  if(!drawing) return;
+  const {x,y} = getXY(e);
+  if(last){
+    ctx.beginPath();
+    ctx.moveTo(last.x, last.y);
+    ctx.lineTo(x,y);
+    ctx.stroke();
+  }
+  last = {x,y};
+});
+function getXY(e){
+  const r = pad.getBoundingClientRect();
+  return { x: Math.round((e.clientX - r.left) * SIZE / r.width),
+           y: Math.round((e.clientY - r.top)  * SIZE / r.height) };
+}
+function clearPad(){
+  ctx.clearRect(0,0,SIZE,SIZE);
+  document.getElementById('out').textContent = '';
+}
+document.getElementById('clear').onclick = clearPad;
+
+// Évaluation: Dice coefficient avec légère dilation sur le modèle
+function evaluate(){
+  const userMask = canvasToMask();
+  const m = dilate(modelMask, SIZE, 2);
+  const inter = intersect(userMask, m);
+  const sumU = sum(userMask);
+  const sumM = sum(flat(modelMask));
+  const denom = sumU + sumM;
+  const dice = denom ? (2*inter/denom) : 0;
+  let msg = dice>=0.85 ? 'Très bien.' : (dice>=0.65 ? 'Correct.' : 'À retravailler.');
+  document.getElementById('out').textContent = `Score: ${(dice*100).toFixed(1)}% — ${msg}`;
+}
+document.getElementById('eval').onclick = evaluate;
+
+function canvasToMask(){
+  const data = ctx.getImageData(0,0,SIZE,SIZE).data;
+  const mask = new Uint8Array(SIZE*SIZE);
+  for(let i=0, p=0; i<data.length; i+=4, p++){
+    const lum = data[i]*0.2126 + data[i+1]*0.7152 + data[i+2]*0.0722;
+    mask[p] = (lum < 200) ? 1 : 0;
+  }
+  return mask;
+}
+function flat(m){ return m; }
+function sum(m){ let s=0; for(let i=0;i<m.length;i++) s+=m[i]; return s; }
+function intersect(a,b){ let s=0; for(let i=0;i<a.length;i++) s += (a[i] && b[i]) ? 1 : 0; return s; }
+function dilate(mask, size, iters){
+  let out = mask.slice();
+  for(let k=0;k<iters;k++){
+    const next = out.slice();
+    for(let y=1;y<size-1;y++){
+      for(let x=1;x<size-1;x++){
+        const i = y*size+x;
+        if(out[i]) { next[i]=1; continue; }
+        if(out[i-1]||out[i+1]||out[i-size]||out[i+size]) next[i]=1;
+      }
+    }
+    out = next;
+  }
+  return out;
+}
+</script>
+</body>
+</html>
