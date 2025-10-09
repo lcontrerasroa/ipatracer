@@ -55,8 +55,8 @@
 </head>
 <body>
 <header class="wrap">
-  <h1>Tracer l’API — Andika (pochoirs remplis)</h1>
-  <p>Choisis un symbole, trace-le, puis évalue. Réglages: trait, seuil, tolérance. Pas de diacritiques ici.</p>
+  <h1>Tracer l’API</h1>
+  <p>Choisis un symbole, trace-le, puis évalue. Réglages: épaisseur du trait, seuil de tolérance.</p>
   <div class="controls">
     <div class="chip">
       <label for="lw">Épaisseur du trait</label>
@@ -258,7 +258,7 @@ document.getElementById('eval').onclick = ()=>{
   const sumU = sum(userMask), sumM = sum(modelMask);
   const denom = sumU + sumM;
   const dice = denom ? (2*inter/denom) : 0;
-  const msg = dice>=.85 ? 'Très bien.' : (dice>=.65 ? 'Correct.' : 'À retravailler.');
+  const msg = dice>=.85 ? 'YAY!' : (dice>=.40 ? 'Correct.' : 'You can do better!');
   const out = document.getElementById('out');
   out.textContent = `Score: ${(dice*100).toFixed(1)}% — ${msg}`;
   out.style.display='inline-block';
