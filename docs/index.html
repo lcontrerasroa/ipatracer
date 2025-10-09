@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tracer l’API — Andika (rempli)</title>
+<title>Tracer l’API</title>
 <style>
   :root{
     --bg:#f8fafc; --card:#fff; --ink:#0f172a; --muted:#475569; --border:#e2e8f0;
@@ -57,9 +57,8 @@
 </head>
 <body>
 <header class="wrap">
-  <h1>Tracer l’API — Andika (pochoirs remplis)</h1>
-  <p>Pochoir et canevas visibles ensemble, même sur téléphone. Règle le trait, le seuil et la tolérance.</p>
-  <div class="controls">
+  <h1>Tracer l’API</h1>
+    <div class="controls">
     <div class="chip">
       <label for="lw">Épaisseur</label>
       <input id="lw" type="range" min="4" max="36" value="16">
@@ -273,7 +272,7 @@ document.getElementById('eval').onclick = ()=>{
   const sumU = sum(userMask), sumM = sum(modelMask);
   const denom = sumU + sumM;
   const dice = denom ? (2*inter/denom) : 0;
-  const msg = dice>=.85 ? 'Très bien.' : (dice>=.65 ? 'Correct.' : 'À retravailler.');
+  const msg = dice>=.65 ? 'Yay!' : (dice>=.35 ? 'Getting there!' : 'You can do better!');
   const out = document.getElementById('out');
   out.textContent = `Score: ${(dice*100).toFixed(1)}% — ${msg}`;
   out.style.display='inline-block';
