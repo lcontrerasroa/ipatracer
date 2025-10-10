@@ -28,7 +28,6 @@
   .panel{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start;margin-top:10px}
   .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:8px}
   .card h3{margin:0 0 .4rem;font-size:14px;color:var(--muted);font-weight:700;text-align:center}
-  /* carré compact: 140–300px, donc visible côte à côte sur téléphone */
   .stage{position:relative;width:clamp(140px,38vw,300px);max-width:100%;margin:0 auto}
   @media (min-width:900px){ .stage{width:340px} }
   #stencilBox{position:relative;width:100%;padding-top:100%}
@@ -47,12 +46,23 @@
   .btn.eval{background:linear-gradient(180deg,var(--accent),#3b82f6)}
   .btn.clear{background:linear-gradient(180deg,#a5b4fc,var(--accent2))}
   .score{font-weight:700;color:#0b7669;background:linear-gradient(180deg,#dcfce7,#bbf7d0);border:1px solid #99f6e4;border-radius:999px;padding:6px 10px;font-size:14px;display:none}
+  select{padding:6px 8px;border:1px solid var(--border);border-radius:10px;background:#fff}
 </style>
 </head>
 <body>
 <header class="wrap">
   <h1>IPA tracer</h1>
   <div class="controls">
+    <div class="chip">
+      <label for="fontpick">Font</label>
+      <select id="fontpick">
+        <option value="andika">Andika</option>
+        <option value="mplus">M PLUS</option>
+        <option value="arimo">Arimo</option>
+        <option value="dejavu">DejaVu Sans</option>
+        <option value="cmu">CMU Sans Serif</option>
+      </select>
+    </div>
     <div class="chip">
       <label for="lw">Stroke</label>
       <input id="lw" type="range" min="4" max="96" value="24">
@@ -89,49 +99,73 @@
 </main>
 
 <script>
-/* Cache-busting basique */
+/* cache-busting */
 const BUST = 'b=' + Date.now();
 
-/* Réglages */
+/* réglages */
 let LINE_WIDTH = 24;
 const THRESH = 235;
 const DILATION_ITERS = 2;
 
-/* Taille dynamique */
-let SIZE = 280;                  // recalculé
-let MODEL_SIZE = 0;              // taille du masque modèle
+/* taille dynamique */
+let SIZE = 280;
+let MODEL_SIZE = 0;
 
-/* État */
+/* état */
 let symbols = [];
 let current = null;
 let modelMask = null;
 
-/* Stroke UI */
+/* fonte sélectionnée */
+let FONT_KEY = localStorage.getItem('ipa_font') || 'andika';
+const fontpick = document.getElementById('fontpick');
+fontpick.value = FONT_KEY;
+fontpick.addEventListener('change', async e=>{
+  FONT_KEY = e.target.value;
+  localStorage.setItem('ipa_font', FONT_KEY);
+  await reloadFontSet();
+});
+
+/* stroke UI */
 const lw = document.getElementById('lw'), lw_n = document.getElementById('lw_n');
 function setLW(v){ LINE_WIDTH = Math.max(1, Number(v)||24); lw.value=LINE_WIDTH; lw_n.value=LINE_WIDTH; if (ctx) ctx.lineWidth = LINE_WIDTH; }
 lw.oninput = e=>setLW(e.target.value); lw_n.oninput = e=>setLW(e.target.value);
 
-/* Charger la liste et retirer le doublon de ɑ */
-fetch('symbols.json?'+BUST).then(r=>r.json()).then(j=>{
+/* helpers chemins */
+function basenameFromEntry(s){
+  if (s.file && s.file.includes('/')) return s.file.split('/').pop();
+  if (s.file) return s.file;
+  const ch = s.ch || '';
+  const bad = '/\\:*?"<>| ';
+  if (ch && [...bad].every(c=>!ch.includes(c))) return ch + '.svg';
+  const cp = (ch && ch.codePointAt) ? ch.codePointAt(0).toString(16).toUpperCase() : "0000";
+  return 'u' + cp + '.svg';
+}
+function pathFor(s){ return `svgs/${FONT_KEY}/${basenameFromEntry(s)}?${BUST}`; }
+
+/* charger symboles (et retirer doublons comme 'ɑ') */
+async function loadSymbols(){
+  const r = await fetch('symbols.json?'+BUST);
+  const j = await r.json();
   const seen = new Set();
   symbols = (j.symbols||[])
-    .filter(s => (s.file||'').includes('svgs/'))
-    .filter(s => { const k = (s.ch || '').trim(); if(seen.has(k)) return false; seen.add(k); return true; });
-  buildGrid(); if(symbols.length) selectSymbol(0);
-}).catch(()=>{ document.getElementById('grid').textContent = "symbols.json introuvable"; });
+    .filter(s => (s.ch||'').trim() !== '')
+    .filter(s => { const k=(s.ch||'').trim(); if(seen.has(k)) return false; seen.add(k); return true; });
+}
 
+/* build grid */
 function buildGrid(){
   const grid = document.getElementById('grid'); grid.innerHTML = '';
   symbols.forEach((s,i)=>{
     const t = document.createElement('div'); t.className='tile';
-    const img = document.createElement('img'); img.src = s.file + '?' + BUST; img.alt = s.ch;
+    const img = document.createElement('img'); img.src = pathFor(s); img.alt = s.ch;
     img.onerror = ()=>{ img.style.opacity=.4; img.alt='?'; };
     t.appendChild(img); t.addEventListener('click', ()=>selectSymbol(i));
     grid.appendChild(t);
   });
 }
 
-/* Fit contain */
+/* fit contain */
 function fitRect(imgW, imgH, boxW=SIZE, boxH=SIZE){
   const rImg = imgW/Math.max(1,imgH), rBox = boxW/boxH;
   let dw, dh, dx, dy;
@@ -140,8 +174,9 @@ function fitRect(imgW, imgH, boxW=SIZE, boxH=SIZE){
   return {dx, dy, dw, dh};
 }
 
-/* Stencil affiché */
-function showStencil(url){
+/* stencil */
+function showStencil(entry){
+  const url = pathFor(entry);
   const img = document.getElementById('stencil');
   img.onload = ()=>{
     const size = getStageSize();
@@ -149,11 +184,12 @@ function showStencil(url){
     img.style.left = fit.dx+'px'; img.style.top = fit.dy+'px';
     img.style.width = fit.dw+'px'; img.style.height = fit.dh+'px';
   };
-  img.src = url + '?' + BUST;
+  img.src = url;
 }
 
-/* SVG -> masque (met à jour MODEL_SIZE) */
-async function svgToMask(url){
+/* svg -> mask (rempli) */
+async function svgToMask(entry){
+  const url = pathFor(entry);
   return new Promise((resolve)=>{
     const img = new Image(); img.crossOrigin='anonymous';
     img.onload = ()=>{
@@ -172,31 +208,29 @@ async function svgToMask(url){
       MODEL_SIZE = size;
       resolve(mask);
     };
-    img.src = url + '?' + BUST;
+    img.src = url;
   });
 }
 
-/* Sélection d’un symbole: canvas d’abord, puis masque */
+/* sélection symbole: reset + nouveau masque */
 async function selectSymbol(idx){
   document.querySelectorAll('.tile').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tile')[idx]?.classList.add('active');
   current = symbols[idx];
-  setupCanvas();                 // fixe SIZE d’après la colonne
-  showStencil(current.file);
-  modelMask = await svgToMask(current.file);
-  clearPad(true);
+  resetCanvas();            // reset visuel et taille
+  showStencil(current);
+  modelMask = await svgToMask(current);
 }
 
-/* Canvas HDPI dynamique */
+/* canvas dynamique HDPI */
 const pad = document.getElementById('pad');
 const ctx  = pad.getContext('2d', {desynchronized:true});
-
 function getStageSize(){
   const stages = Array.from(document.querySelectorAll('.stage'));
   const w = Math.max(140, Math.min(300, Math.floor(Math.min(...stages.map(s => s.getBoundingClientRect().width)) || 280)));
   SIZE = w; return w;
 }
-function setupCanvas(){
+function setupCanvasBase(){
   const size = getStageSize();
   const dpr = Math.max(1, window.devicePixelRatio||1);
   pad.width  = Math.round(size*dpr);
@@ -204,25 +238,30 @@ function setupCanvas(){
   pad.style.width  = size+'px';
   pad.style.height = size+'px';
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,size,size);
-  ctx.lineCap='round'; ctx.strokeStyle='#000'; ctx.lineWidth = LINE_WIDTH;
 }
-setupCanvas();
+function resetCanvas(){
+  setupCanvasBase();
+  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,SIZE,SIZE);
+  ctx.lineCap='round'; ctx.strokeStyle='#000'; ctx.lineWidth = LINE_WIDTH;
+  document.getElementById('out').style.display='none';
+}
+resetCanvas();
+
 window.addEventListener('resize', async ()=>{
   const prev = SIZE;
-  setupCanvas();
+  resetCanvas();
   if (current && SIZE !== prev){
-    showStencil(current.file);
-    modelMask = await svgToMask(current.file);   // régénère le masque à la nouvelle taille
+    showStencil(current);
+    modelMask = await svgToMask(current);
   }
 });
 
-/* Mobile: pas de scroll pendant le dessin */
+/* mobile: no-scroll while drawing */
 pad.style.touchAction='none';
 pad.addEventListener('touchstart', e=>e.preventDefault(), {passive:false});
 pad.addEventListener('touchmove',  e=>e.preventDefault(), {passive:false});
 
-/* Dessin */
+/* dessin */
 let drawing=false, last=null;
 pad.addEventListener('pointerdown', e=>{ pad.setPointerCapture?.(e.pointerId); drawing=true; last=getXY(e); });
 pad.addEventListener('pointerup',   ()=>{ drawing=false; last=null; });
@@ -239,17 +278,18 @@ function getXY(e){
            y: Math.round((e.clientY-r.top) *(SIZE/r.height)) };
 }
 
-/* Outils */
+/* outils */
 function clearPad(init=false){
-  ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,pad.width,pad.height); ctx.restore();
-  setupCanvas(); if(!init) document.getElementById('out').style.display='none';
+  resetCanvas();
+  if (current){ showStencil(current); svgToMask(current).then(m=>modelMask=m); }
 }
 document.getElementById('clear').onclick = ()=>clearPad();
 
-/* Score robuste (ré-génère le masque si tailles différentes) */
+/* score + reset après évaluation */
 document.getElementById('eval').onclick = async ()=>{
+  if (!current) return;
   if (!modelMask || MODEL_SIZE !== SIZE){
-    modelMask = await svgToMask(current.file);
+    modelMask = await svgToMask(current);
   }
   const userMask = canvasToMask();
   const m = dilate(modelMask, SIZE, DILATION_ITERS);
@@ -266,12 +306,16 @@ document.getElementById('eval').onclick = async ()=>{
   const out = document.getElementById('out');
   out.textContent = `${(dice*100).toFixed(1)}% — ${text}`;
   out.style.display='inline-block';
+
+  // renouveler le canevas et le masque pour un nouvel essai
+  resetCanvas();
+  modelMask = await svgToMask(current);
 };
 
+/* masques et morpho */
 function canvasToMask(){
-  const size = SIZE;
-  const data = ctx.getImageData(0,0,size,size).data;
-  const mask = new Uint8Array(size*size);
+  const data = ctx.getImageData(0,0,SIZE,SIZE).data;
+  const mask = new Uint8Array(SIZE*SIZE);
   for(let i=0,p=0;i<data.length;i+=4,p++){
     const lum = data[i]*.2126 + data[i+1]*.7152 + data[i+2]*.0722;
     mask[p] = (lum < THRESH) ? 1 : 0;
@@ -297,8 +341,15 @@ function dilate(mask,size,it){
   return out;
 }
 
+/* recharger tout pour une fonte */
+async function reloadFontSet(){
+  await loadSymbols();
+  buildGrid();
+  if (symbols.length) await selectSymbol(0);
+}
+
 /* init */
-setLW(LINE_WIDTH);
+(async ()=>{ await reloadFontSet(); setLW(LINE_WIDTH); })();
 </script>
 </body>
 </html>
