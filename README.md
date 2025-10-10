@@ -6,17 +6,17 @@ Elle permet de s’entraîner à **tracer les symboles de l’Alphabet Phonétiq
 👉 Démo en ligne : [https://lcontrerasroa.github.io/ipatracer/](https://lcontrerasroa.github.io/ipatracer/)
 
 
-## ✨ Fonctionnalités
+## Fonctionnalités
 
-- 🖊️ **Traçage libre** sur canevas (compatible mobile et tablette)  
-- 🪞 **Pochoirs SVG** de chaque symbole IPA (Andika, échelle uniforme, contours nets)  
-- 🎨 **Interface claire et pastel**, pensée pour la lisibilité et le confort visuel  
-- 📏 Réglages en temps réel :
+- **Traçage libre** sur canevas (compatible mobile et tablette)  
+- **Pochoirs SVG** de chaque symbole IPA (Andika, échelle uniforme, contours nets)  
+- **Interface claire et pastel**, pensée pour la lisibilité et le confort visuel  
+- çéglages en temps réel :
   - Épaisseur du trait  
   - Étirement vertical (pour corriger les proportions de certains glyphes)  
   - Seuil de détection du “noir” pour l’évaluation  
-- 📈 **Évaluation automatique** de la justesse du tracé (Dice coefficient)  
-- ⚙️ Compatible avec tous les navigateurs modernes, aucune installation requise  
+- **Évaluation automatique** de la justesse du tracé (Dice coefficient)[^1]
+- Compatible avec tous les navigateurs modernes, aucune installation requise  
 
 
 ## Objectifs pédagogiques
@@ -116,3 +116,5 @@ Université de Picardie Jules Verne. Disponible sur https://lcontrerasroa.github
 Exemple d’usage dans un mémoire ou article :
 
 Les exercices de traçage ont été réalisés à l’aide de IPA Tracer (Contreras Roa, 2025), une application web open-source développée à partir de fontes IPA libres.
+
+[^1]: Dice, L. R. (1945). *Measures of the amount of ecologic association between species.* *Ecology, 26*(3), 297–302. https://doi.org/10.2307/1932409
