@@ -56,11 +56,7 @@ ipatracer/
 - **Frontend :** HTML5, CSS3, JavaScript vanilla  
 - **Canvas API** (dessin et comparaison des tracés)  
 - **SVG vectoriels** (pochoirs générés à partir des polices)  
-- **Andika (SIL)** — police sans sérif claire et pédagogique  
 - **GitHub Pages** pour le déploiement statique
-
----
-
 
 
 ## Génération des pochoirs (SVG)
