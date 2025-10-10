@@ -20,16 +20,20 @@
   .chip label{font-size:12px;color:var(--muted)}
   .chip input[type="range"]{accent-color:var(--accent);width:160px}
   .chip input[type="number"]{width:64px;padding:3px 6px;border:1px solid var(--border);border-radius:8px}
+  select{padding:6px 8px;border:1px solid var(--border);border-radius:10px;background:#fff}
+
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:6px}
   .tile{background:var(--card);border:1px solid var(--border);border-radius:12px;display:grid;place-items:center;
         aspect-ratio:1/1;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.06)}
   .tile.active{outline:2px solid var(--accent)}
   .tile img{width:50px;height:50px;filter:grayscale(.08)}
+
   .panel{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start;margin-top:10px}
   .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:8px}
   .card h3{margin:0 0 .4rem;font-size:14px;color:var(--muted);font-weight:700;text-align:center}
   .stage{position:relative;width:clamp(140px,38vw,300px);max-width:100%;margin:0 auto}
   @media (min-width:900px){ .stage{width:340px} }
+
   #stencilBox{position:relative;width:100%;padding-top:100%}
   #stencil{position:absolute;left:0;top:0;width:100%;height:100%;opacity:.55;image-rendering:pixelated}
   #gridOverlayStencil, #gridOverlayCanvas{
@@ -39,14 +43,20 @@
       linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px);
     background-size:12.5% 12.5%;
   }
+
   canvas{width:100%;height:auto;background:#fff;border-radius:12px;border:1px solid var(--border);
          box-shadow:inset 0 0 0 1px rgba(15,23,42,.02);touch-action:none;position:relative}
+
   .row{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:8px;flex-wrap:wrap}
   .btn{padding:9px 12px;border:none;border-radius:12px;color:#fff;cursor:pointer;box-shadow:0 2px 6px rgba(99,102,241,.18);font-weight:600;font-size:14px}
   .btn.eval{background:linear-gradient(180deg,var(--accent),#3b82f6)}
   .btn.clear{background:linear-gradient(180deg,#a5b4fc,var(--accent2))}
   .score{font-weight:700;color:#0b7669;background:linear-gradient(180deg,#dcfce7,#bbf7d0);border:1px solid #99f6e4;border-radius:999px;padding:6px 10px;font-size:14px;display:none}
-  select{padding:6px 8px;border:1px solid var(--border);border-radius:10px;background:#fff}
+
+  .meta{margin-top:8px;text-align:center}
+  .meta .name{font-size:13px;color:#334155;margin-bottom:4px}
+  .meta audio{width:100%; max-width:260px}
+  .meta .license{display:block;font-size:11px;color:#64748b;margin-top:4px}
 </style>
 </head>
 <body>
@@ -56,8 +66,8 @@
     <div class="chip">
       <label for="fontpick">Font</label>
       <select id="fontpick">
-        <option value="andika">Andika</option>
         <option value="mplus">M PLUS</option>
+        <option value="andika">Andika</option>
         <option value="arimo">Arimo</option>
         <option value="dejavu">DejaVu Sans</option>
         <option value="cmu">CMU Sans Serif</option>
@@ -81,6 +91,11 @@
         <img id="stencil" alt="stencil">
         <div id="gridOverlayStencil"></div>
       </div>
+      <div class="meta">
+        <div id="nameStencil" class="name"></div>
+        <audio id="audioStencil" controls preload="none"></audio>
+        <small id="licStencil" class="license"></small>
+      </div>
     </div>
 
     <div class="card">
@@ -88,6 +103,11 @@
       <div class="stage">
         <canvas id="pad"></canvas>
         <div id="gridOverlayCanvas"></div>
+      </div>
+      <div class="meta">
+        <div id="nameCanvas" class="name"></div>
+        <audio id="audioCanvas" controls preload="none"></audio>
+        <small id="licCanvas" class="license"></small>
       </div>
       <div class="row">
         <button id="eval" class="btn eval">Evaluate</button>
@@ -105,7 +125,7 @@ const BUST = 'b=' + Date.now();
 /* réglages */
 let LINE_WIDTH = 24;
 const THRESH = 235;
-const DILATION_ITERS = 2;
+const DILATION_ITERS = 3;   // plus indulgent, demandé
 
 /* taille dynamique */
 let SIZE = 280;
@@ -113,11 +133,12 @@ let MODEL_SIZE = 0;
 
 /* état */
 let symbols = [];
+let available = [];
 let current = null;
 let modelMask = null;
 
-/* fonte sélectionnée */
-let FONT_KEY = localStorage.getItem('ipa_font') || 'andika';
+/* fonte (M PLUS par défaut) */
+let FONT_KEY = localStorage.getItem('ipa_font') || 'mplus';
 const fontpick = document.getElementById('fontpick');
 fontpick.value = FONT_KEY;
 fontpick.addEventListener('change', async e=>{
@@ -126,12 +147,150 @@ fontpick.addEventListener('change', async e=>{
   await reloadFontSet();
 });
 
-/* stroke UI */
+/* Stroke UI */
 const lw = document.getElementById('lw'), lw_n = document.getElementById('lw_n');
 function setLW(v){ LINE_WIDTH = Math.max(1, Number(v)||24); lw.value=LINE_WIDTH; lw_n.value=LINE_WIDTH; if (ctx) ctx.lineWidth = LINE_WIDTH; }
 lw.oninput = e=>setLW(e.target.value); lw_n.oninput = e=>setLW(e.target.value);
 
-/* helpers chemins */
+/* Métadonnées phonèmes: nom + audio + licence (Wikimedia Commons) */
+const PHONO = {
+  // Voyelles
+  "i": { name:"Close front unrounded vowel",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Close_front_unrounded_vowel.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche (souvent CC BY-SA 3.0/GFDL)" }, // :contentReference[oaicite:0]{index=0}
+  "u": { name:"Close back rounded vowel",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Close_back_rounded_vowel.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:1]{index=1}
+  "ɑ": { name:"Open back unrounded vowel",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Open_back_unrounded_vowel.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:2]{index=2}
+  "æ": { name:"Near-open front unrounded vowel",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Near-open_front_unrounded_vowel.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:3]{index=3}
+  "ə": { name:"Mid-central vowel (schwa)",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Mid-central_vowel.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:4]{index=4}
+  "ɪ": { name:"Near-close near-front unrounded vowel",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Near-close_near-front_unrounded_vowel.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:5]{index=5}
+  "ʊ": { name:"Near-close near-back rounded vowel",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Near-close_near-back_rounded_vowel.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:6]{index=6}
+  "e": { name:"Close-mid front unrounded vowel",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Close-mid_front_unrounded_vowel.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:7]{index=7}
+  "ɔ": { name:"Open-mid back rounded vowel",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Open-mid_back_rounded_vowel.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:8]{index=8}
+  "ʌ": { name:"Open-mid back unrounded vowel",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Open-mid_back_unrounded_vowel.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:9]{index=9}
+
+  // Occlusives
+  "p": { name:"Voiceless bilabial plosive",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiceless_bilabial_plosive.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:10]{index=10}
+  "b": { name:"Voiced bilabial plosive",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiced_bilabial_plosive.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // (présent en catégories fricatives/plosives)
+  "t": { name:"Voiceless alveolar stop",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiceless_alveolar_stop.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:11]{index=11}
+  "d": { name:"Voiced alveolar stop",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiced_alveolar_stop.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:12]{index=12}
+  "k": { name:"Voiceless velar stop",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiceless_velar_plosive.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" },
+  "g": { name:"Voiced velar stop",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiced_velar_plosive.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" },
+  "ʔ": { name:"Glottal stop",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Glottal_stop.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:13]{index=13}
+
+  // Fricatives
+  "f": { name:"Voiceless labiodental fricative",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiceless_labiodental_fricative.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" },
+  "v": { name:"Voiced labiodental fricative",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiced_labiodental_fricative.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:14]{index=14}
+  "θ": { name:"Voiceless dental fricative",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiceless_dental_fricative.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:15]{index=15}
+  "ð": { name:"Voiced dental fricative",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiced_dental_fricative.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:16]{index=16}
+  "s": { name:"Voiceless alveolar fricative",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiceless_alveolar_fricative.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" },
+  "z": { name:"Voiced alveolar fricative",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiced_alveolar_sibilant.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:17]{index=17}
+  "ʃ": { name:"Voiceless postalveolar fricative",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiceless_postalveolar_fricative.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:18]{index=18}
+  "ʒ": { name:"Voiced postalveolar fricative",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiced_postalveolar_fricative.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" },
+  "h": { name:"Voiceless glottal fricative",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiceless_glottal_fricative.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" },
+
+  // Nasales
+  "m": { name:"Bilabial nasal",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Bilabial_nasal.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" },
+  "n": { name:"Alveolar nasal",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Alveolar_nasal.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" },
+  "ŋ": { name:"Velar nasal",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Velar_nasal.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:19]{index=19}
+
+  // Approximantes et latérales
+  "l": { name:"Alveolar lateral approximant",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Alveolar_lateral_approximant.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:20]{index=20}
+  "ɹ": { name:"Alveolar approximant",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Alveolar_approximant.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:21]{index=21}
+  "j": { name:"Palatal approximant",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Palatal_approximant.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" }, // :contentReference[oaicite:22]{index=22}
+  "w": { name:"Labio-velar approximant",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Labio-velar_approximant.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" },
+  "ɾ": { name:"Alveolar tap",
+         audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Alveolar_tap.ogg",
+         license:"Audio © Wikimedia Commons — voir la fiche" },
+
+  // Diacritiques courants qu’on affiche sans audio
+  "ː": { name:"Length mark" },
+  "ˈ": { name:"Primary stress" },
+  "ˌ": { name:"Secondary stress" }
+};
+
+function updateMeta(entry){
+  const meta = PHONO[(entry.ch||'').trim()] || {};
+  // Stencil side
+  document.getElementById('nameStencil').textContent = meta.name || '';
+  const aS = document.getElementById('audioStencil');
+  const lS = document.getElementById('licStencil');
+  if (meta.audio){ aS.src = meta.audio; aS.style.display='inline-block'; }
+  else { aS.removeAttribute('src'); aS.style.display='none'; }
+  lS.textContent = meta.license || '';
+  // Canvas side
+  document.getElementById('nameCanvas').textContent = meta.name || '';
+  const aC = document.getElementById('audioCanvas');
+  const lC = document.getElementById('licCanvas');
+  if (meta.audio){ aC.src = meta.audio; aC.style.display='inline-block'; }
+  else { aC.removeAttribute('src'); aC.style.display='none'; }
+  lC.textContent = meta.license || '';
+}
+
+/* chemins */
 function basenameFromEntry(s){
   if (s.file && s.file.includes('/')) return s.file.split('/').pop();
   if (s.file) return s.file;
@@ -143,7 +302,7 @@ function basenameFromEntry(s){
 }
 function pathFor(s){ return `svgs/${FONT_KEY}/${basenameFromEntry(s)}?${BUST}`; }
 
-/* charger symboles (et retirer doublons comme 'ɑ') */
+/* data */
 async function loadSymbols(){
   const r = await fetch('symbols.json?'+BUST);
   const j = await r.json();
@@ -153,19 +312,28 @@ async function loadSymbols(){
     .filter(s => { const k=(s.ch||'').trim(); if(seen.has(k)) return false; seen.add(k); return true; });
 }
 
-/* build grid */
-function buildGrid(){
+/* grille: n’affiche que ce qui existe */
+async function buildGrid(){
   const grid = document.getElementById('grid'); grid.innerHTML = '';
-  symbols.forEach((s,i)=>{
-    const t = document.createElement('div'); t.className='tile';
-    const img = document.createElement('img'); img.src = pathFor(s); img.alt = s.ch;
-    img.onerror = ()=>{ img.style.opacity=.4; img.alt='?'; };
-    t.appendChild(img); t.addEventListener('click', ()=>selectSymbol(i));
-    grid.appendChild(t);
-  });
+  available = [];
+  await Promise.all(symbols.map(s => new Promise(resolve=>{
+    const img = new Image();
+    img.onload = ()=>{ available.push(s); addTile(s); resolve(); };
+    img.onerror = ()=>resolve();
+    img.src = pathFor(s);
+  })));
+  if (available.length) selectSymbolByEntry(available[0]);
+}
+function addTile(s){
+  const grid = document.getElementById('grid');
+  const t = document.createElement('div'); t.className='tile';
+  const img = document.createElement('img'); img.src = pathFor(s); img.alt = s.ch;
+  t.appendChild(img);
+  t.addEventListener('click', ()=>selectSymbolByEntry(s));
+  grid.appendChild(t);
 }
 
-/* fit contain */
+/* fit */
 function fitRect(imgW, imgH, boxW=SIZE, boxH=SIZE){
   const rImg = imgW/Math.max(1,imgH), rBox = boxW/boxH;
   let dw, dh, dx, dy;
@@ -174,7 +342,7 @@ function fitRect(imgW, imgH, boxW=SIZE, boxH=SIZE){
   return {dx, dy, dw, dh};
 }
 
-/* stencil */
+/* stencil display */
 function showStencil(entry){
   const url = pathFor(entry);
   const img = document.getElementById('stencil');
@@ -187,7 +355,7 @@ function showStencil(entry){
   img.src = url;
 }
 
-/* svg -> mask (rempli) */
+/* svg -> mask */
 async function svgToMask(entry){
   const url = pathFor(entry);
   return new Promise((resolve)=>{
@@ -212,17 +380,22 @@ async function svgToMask(entry){
   });
 }
 
-/* sélection symbole: reset + nouveau masque */
-async function selectSymbol(idx){
-  document.querySelectorAll('.tile').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.tile')[idx]?.classList.add('active');
-  current = symbols[idx];
-  resetCanvas();            // reset visuel et taille
+/* sélection */
+async function selectSymbolByEntry(entry){
+  // highlight
+  const tiles = Array.from(document.querySelectorAll('.tile'));
+  tiles.forEach(t => t.classList.remove('active'));
+  const idx = available.indexOf(entry);
+  if (idx >= 0 && tiles[idx]) tiles[idx].classList.add('active');
+
+  current = entry;
+  resetCanvas();
   showStencil(current);
+  updateMeta(current);
   modelMask = await svgToMask(current);
 }
 
-/* canvas dynamique HDPI */
+/* canvas dynamique */
 const pad = document.getElementById('pad');
 const ctx  = pad.getContext('2d', {desynchronized:true});
 function getStageSize(){
@@ -256,7 +429,7 @@ window.addEventListener('resize', async ()=>{
   }
 });
 
-/* mobile: no-scroll while drawing */
+/* mobile no-scroll */
 pad.style.touchAction='none';
 pad.addEventListener('touchstart', e=>e.preventDefault(), {passive:false});
 pad.addEventListener('touchmove',  e=>e.preventDefault(), {passive:false});
@@ -278,14 +451,13 @@ function getXY(e){
            y: Math.round((e.clientY-r.top) *(SIZE/r.height)) };
 }
 
-/* outils */
-function clearPad(init=false){
+/* boutons */
+function clearPad(){
   resetCanvas();
-  if (current){ showStencil(current); svgToMask(current).then(m=>modelMask=m); }
+  if (current){ showStencil(current); updateMeta(current); svgToMask(current).then(m=>modelMask=m); }
 }
 document.getElementById('clear').onclick = ()=>clearPad();
 
-/* score + reset après évaluation */
 document.getElementById('eval').onclick = async ()=>{
   if (!current) return;
   if (!modelMask || MODEL_SIZE !== SIZE){
@@ -306,10 +478,6 @@ document.getElementById('eval').onclick = async ()=>{
   const out = document.getElementById('out');
   out.textContent = `${(dice*100).toFixed(1)}% — ${text}`;
   out.style.display='inline-block';
-
-  // renouveler le canevas et le masque pour un nouvel essai
-  resetCanvas();
-  modelMask = await svgToMask(current);
 };
 
 /* masques et morpho */
@@ -341,15 +509,12 @@ function dilate(mask,size,it){
   return out;
 }
 
-/* recharger tout pour une fonte */
-async function reloadFontSet(){
+/* bootstrap */
+(async ()=>{ 
   await loadSymbols();
-  buildGrid();
-  if (symbols.length) await selectSymbol(0);
-}
-
-/* init */
-(async ()=>{ await reloadFontSet(); setLW(LINE_WIDTH); })();
+  await buildGrid();
+  setLW(LINE_WIDTH);
+})();
 </script>
 </body>
 </html>
