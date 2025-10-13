@@ -35,11 +35,11 @@
   .panel{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start;margin-top:10px}
   .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:8px}
   .card h3{margin:0 0 .4rem;font-size:14px;color:var(--muted);font-weight:700;text-align:center}
-  .stage{position:relative;width:clamp(140px,38vw,300px);max-width:100%;margin:0 auto}
-  @media (min-width:900px){ .stage{width:340px} }
+  .stage{position:relative;max-width:100%;margin:0 auto}
+  /* la largeur exacte est imposée par JS pour synchroniser pochoir et canevas */
 
-  #stencilBox{position:relative;width:100%;padding-top:100%}
-  #stencil{position:absolute;left:0;top:0;width:100%;height:100%;opacity:.55;image-rendering:pixelated}
+  #stencilBox{position:relative;width:100%;padding-top:100%} /* carré fluide */
+  #stencil{position:absolute;left:0;top:0;width:100%;height:100%;opacity:1;image-rendering:pixelated} /* opaque, pas d’alpha */
 
   #gridOverlayStencil, #gridOverlayCanvas{
     position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none;
@@ -47,16 +47,17 @@
       linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px),
       linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px);
     background-size:12.5% 12.5%;
+    z-index:3;
   }
 
-  /* Fantôme d’aide sur le canevas */
+  /* Fantôme d’aide sur le canevas: AU-DESSUS du canvas */
   #ghost{
     position:absolute; left:0; top:0; width:100%; height:100%;
-    opacity:.18; pointer-events:none; display:none; image-rendering:pixelated;
+    opacity:.18; pointer-events:none; display:none; image-rendering:pixelated; z-index:2;
   }
 
   canvas{width:100%;height:auto;background:#fff;border-radius:12px;border:1px solid var(--border);
-         box-shadow:inset 0 0 0 1px rgba(15,23,42,.02);touch-action:none;position:relative}
+         box-shadow:inset 0 0 0 1px rgba(15,23,42,.02);touch-action:none;position:relative;z-index:1}
 
   .row{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:8px;flex-wrap:wrap}
   .btn{padding:9px 12px;border:none;border-radius:12px;color:#fff;cursor:pointer;box-shadow:0 2px 6px rgba(99,102,241,.18);font-weight:600;font-size:14px}
@@ -139,7 +140,7 @@ let LINE_WIDTH = 24;
 const THRESH = 235;
 const DILATION_ITERS = 3;
 
-let SIZE = 280;
+let SIZE = 280;          // taille carrée imposée aux .stage
 let MODEL_SIZE = 0;
 
 let symbols = [];
@@ -206,6 +207,16 @@ function updateMeta(entry){
   else { aS.removeAttribute('src'); aS.style.display='none'; lS.textContent=''; }
 }
 
+/* -------- Taille unique imposée aux stages -------- */
+function computeStageSize(){
+  // petit téléphone -> 140..300, desktop -> max 360
+  const vw = Math.max(320, window.innerWidth||800);
+  const target = Math.min(360, Math.max(140, Math.floor(vw/3.6)));
+  SIZE = target;
+  document.querySelectorAll('.stage').forEach(el=>{ el.style.width = SIZE+'px'; });
+}
+computeStageSize();
+
 /* -------- Helpers fichiers -------- */
 function basenameFromEntry(s){
   if (s.file && s.file.includes('/')) return s.file.split('/').pop();
@@ -264,8 +275,7 @@ function showStencil(entry){
   img.removeAttribute('src');
   const url = pathFor(entry);
   img.onload = ()=>{
-    const size = getStageSize();
-    const fit = fitRect(img.naturalWidth||size, img.naturalHeight||size, size, size);
+    const fit = fitRect(img.naturalWidth||SIZE, img.naturalHeight||SIZE, SIZE, SIZE);
     img.style.left = fit.dx+'px'; img.style.top = fit.dy+'px';
     img.style.width = fit.dw+'px'; img.style.height = fit.dh+'px';
   };
@@ -278,8 +288,7 @@ function syncGhost(entry){
   if (!entry || !helpEnabled()){ g.style.display='none'; return; }
   const url = pathFor(entry);
   g.onload = ()=>{
-    const size = getStageSize();
-    const fit = fitRect(g.naturalWidth||size, g.naturalHeight||size, size, size);
+    const fit = fitRect(g.naturalWidth||SIZE, g.naturalHeight||SIZE, SIZE, SIZE);
     g.style.left = fit.dx+'px'; g.style.top = fit.dy+'px';
     g.style.width = fit.dw+'px'; g.style.height = fit.dh+'px';
     g.style.display = 'block';
@@ -293,19 +302,18 @@ async function svgToMask(entry){
   return new Promise((resolve)=>{
     const img = new Image(); img.crossOrigin='anonymous';
     img.onload = ()=>{
-      const size = getStageSize();
-      const fit = fitRect(img.naturalWidth||size, img.naturalHeight||size, size, size);
-      const off = document.createElement('canvas'); off.width=size; off.height=size;
+      const off = document.createElement('canvas'); off.width=SIZE; off.height=SIZE;
       const cx = off.getContext('2d');
-      cx.fillStyle = '#fff'; cx.fillRect(0,0,size,size);
+      const fit = fitRect(img.naturalWidth||SIZE, img.naturalHeight||SIZE, SIZE, SIZE);
+      cx.fillStyle = '#fff'; cx.fillRect(0,0,SIZE,SIZE);
       cx.drawImage(img, fit.dx, fit.dy, fit.dw, fit.dh);
-      const data = cx.getImageData(0,0,size,size).data;
-      const mask = new Uint8Array(size*size);
+      const data = cx.getImageData(0,0,SIZE,SIZE).data;
+      const mask = new Uint8Array(SIZE*SIZE);
       for(let i=0,p=0;i<data.length;i+=4,p++){
         const lum = data[i]*.2126 + data[i+1]*.7152 + data[i+2]*.0722;
         mask[p] = (lum < THRESH) ? 1 : 0;
       }
-      MODEL_SIZE = size;
+      MODEL_SIZE = SIZE;
       resolve(mask);
     };
     img.src = url;
@@ -330,18 +338,12 @@ async function selectSymbolByEntry(entry){
 const pad = document.getElementById('pad');
 const ctx  = pad.getContext('2d', {desynchronized:true});
 
-function getStageSize(){
-  const stages = Array.from(document.querySelectorAll('.stage'));
-  const w = Math.max(140, Math.min(300, Math.floor(Math.min(...stages.map(s => s.getBoundingClientRect().width)) || 280)));
-  SIZE = w; return w;
-}
 function setupCanvasBase(){
-  const size = getStageSize();
   const dpr = Math.max(1, window.devicePixelRatio||1);
-  pad.width  = Math.round(size*dpr);
-  pad.height = Math.round(size*dpr);
-  pad.style.width  = size+'px';
-  pad.style.height = size+'px';
+  pad.width  = Math.round(SIZE*dpr);
+  pad.height = Math.round(SIZE*dpr);
+  pad.style.width  = SIZE+'px';
+  pad.style.height = SIZE+'px';
   ctx.setTransform(dpr,0,0,dpr,0,0);
 }
 function resetCanvas(){
@@ -349,15 +351,16 @@ function resetCanvas(){
   ctx.fillStyle = '#fff'; ctx.fillRect(0,0,SIZE,SIZE);
   ctx.lineCap='round'; ctx.strokeStyle='#000'; ctx.lineWidth = LINE_WIDTH;
   document.getElementById('out').style.display='none';
-  // si le guide est actif, il doit rester visible après reset
   syncGhost(current);
 }
 resetCanvas();
 
+/* -------- Resize: imposer même taille aux deux panneaux -------- */
 window.addEventListener('resize', async ()=>{
-  const prev = SIZE;
+  const old = SIZE;
+  computeStageSize();
   resetCanvas();
-  if (current && SIZE !== prev){
+  if (current){
     showStencil(current);
     modelMask = await svgToMask(current);
     syncGhost(current);
@@ -448,14 +451,16 @@ function dilate(mask,size,it){
 async function reloadFontSet(){
   await loadSymbols();
   await buildGrid();
+  computeStageSize();
   resetCanvas();
-  if (current){ showStencil(current); modelMask = await svgToMask(current); }
+  if (current){ showStencil(current); modelMask = await svgToMask(current); syncGhost(current); }
 }
 
 /* -------- Bootstrap -------- */
 (async ()=>{ 
   await loadSymbols();
   await buildGrid();
+  computeStageSize();
   setLW(LINE_WIDTH);
 })();
 </script>
