@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="1120" height="1120" viewBox="0 0 1120.0 1120.0" xmlns="http://www.w3.org/2000/svg">
-  <rect x="0" y="0" width="1120.0" height="1120.0" fill="white"/>
-  <g transform="translate(38.316,1035.340) scale(0.85034,-0.85034)">
-    <path d="M930 950V1120H1114V0H930V168Q872 68 783.5 19.5Q695 -29 571 -29Q368 -29 240.5 133.0Q113 295 113 559Q113 823 240.5 985.0Q368 1147 571 1147Q695 1147 783.5 1098.5Q872 1050 930 950ZM303 559Q303 356 386.5 240.5Q470 125 616 125Q762 125 846.0 240.5Q930 356 930 559Q930 762 846.0 877.5Q762 993 616 993Q470 993 386.5 877.5Q303 762 303 559Z" fill="#000" stroke="#000" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+<svg width="1120" height="1120" viewBox="0 0 1120.000 1120.000" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="1120.000" height="1120.000" fill="white"/>
+  <g transform="translate(254.472,842.869) scale(0.49801,-0.49801)">
+    <path d="M930 950V1120H1114V0H930V168Q872 68 783.5 19.5Q695 -29 571 -29Q368 -29 240.5 133.0Q113 295 113 559Q113 823 240.5 985.0Q368 1147 571 1147Q695 1147 783.5 1098.5Q872 1050 930 950ZM303 559Q303 356 386.5 240.5Q470 125 616 125Q762 125 846.0 240.5Q930 356 930 559Q930 762 846.0 877.5Q762 993 616 993Q470 993 386.5 877.5Q303 762 303 559Z" fill="#000000" stroke="#000000" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
   </g>
 </svg>

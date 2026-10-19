@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="1120" height="1120" viewBox="0 0 1120.0 1120.0" xmlns="http://www.w3.org/2000/svg">
-  <rect x="0" y="0" width="1120.0" height="1120.0" fill="white"/>
+<svg width="1120" height="1120" viewBox="0 0 1120.000 1120.000" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="1120.000" height="1120.000" fill="white"/>
   <g transform="translate(364.469,854.413) scale(1.11732,-1.11732)">
-    <path d="M-29 -139C-18 -150 11 -184 71 -184C121 -184 206 -155 206 -43V566L207 590C211 629 240 661 281 661C304 661 332 651 360 626L379 678C352 697 323 711 280 711C228 711 143 683 143 570V-65C139 -100 114 -133 71 -133C23 -133 1 -102 -10 -87Z" fill="#000" stroke="#000" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M-29 -139C-18 -150 11 -184 71 -184C121 -184 206 -155 206 -43V566L207 590C211 629 240 661 281 661C304 661 332 651 360 626L379 678C352 697 323 711 280 711C228 711 143 683 143 570V-65C139 -100 114 -133 71 -133C23 -133 1 -102 -10 -87Z" fill="#000000" stroke="#000000" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
   </g>
 </svg>

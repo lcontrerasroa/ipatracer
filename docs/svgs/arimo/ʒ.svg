@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="1120" height="1120" viewBox="0 0 1120.0 1120.0" xmlns="http://www.w3.org/2000/svg">
-  <rect x="0" y="0" width="1120.0" height="1120.0" fill="white"/>
-  <g transform="translate(194.041,777.983) scale(0.66357,-0.66357)">
-    <path d="M1035 69Q1035 -78 975.0 -189.0Q915 -300 808.0 -362.5Q701 -425 561 -425Q345 -425 218.0 -330.0Q91 -235 68 -48L246 -36Q265 -169 342.0 -228.5Q419 -288 555 -288Q692 -288 773.0 -188.5Q854 -89 854 75Q854 231 762.5 321.0Q671 411 508 411H426V555L819 941H116V1082H999V904L616 544Q812 519 923.5 393.5Q1035 268 1035 69Z" fill="#000" stroke="#000" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+<svg width="1120" height="1120" viewBox="0 0 1120.000 1120.000" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="1120.000" height="1120.000" fill="white"/>
+  <g transform="translate(275.575,840.815) scale(0.51573,-0.51573)">
+    <path d="M1035 69Q1035 -78 975.0 -189.0Q915 -300 808.0 -362.5Q701 -425 561 -425Q345 -425 218.0 -330.0Q91 -235 68 -48L246 -36Q265 -169 342.0 -228.5Q419 -288 555 -288Q692 -288 773.0 -188.5Q854 -89 854 75Q854 231 762.5 321.0Q671 411 508 411H426V555L819 941H116V1082H999V904L616 544Q812 519 923.5 393.5Q1035 268 1035 69Z" fill="#000000" stroke="#000000" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
   </g>
 </svg>

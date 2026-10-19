@@ -8,14 +8,14 @@ Elle permet de s’entraîner à **tracer les symboles de l’Alphabet Phonétiq
 
 ## Fonctionnalités
 
-- **Traçage libre** sur canevas (compatible mobile et tablette)  
-- **Pochoirs SVG** de chaque symbole IPA (Andika, échelle uniforme, contours nets)  
-- **Interface claire et pastel**, pensée pour la lisibilité et le confort visuel  
-- çéglages en temps réel :
-  - Épaisseur du trait  
-  - Étirement vertical (pour corriger les proportions de certains glyphes)  
-  - Seuil de détection du “noir” pour l’évaluation  
-- **Évaluation automatique** de la justesse du tracé (Dice coefficient)[^1]
+- **Traçage libre** sur canevas, pensé d'abord pour le téléphone (doigt ou stylet, rejet de la paume avec un stylet)
+- **Pochoirs SVG** de chaque symbole IPA dans 5 polices, à **échelle commune** : ˈ reste petit et en haut, ɪ plus petit que l, etc.
+- **Lignes de guidage** (ligne de base et hauteur d'x)
+- Réglages : police, épaisseur du trait, fantôme d'aide sur le canevas
+- **Mode quiz** : le pochoir est masqué, on trace d'après le nom et le son, le pochoir s'affiche à la vérification
+- **Annuler** trait par trait, navigation ‹ › et clavier (← →, Entrée, Ctrl+Z)
+- **Audio** Wikimedia Commons (MP3, lisible sur iPhone)
+- **Évaluation automatique** : le squelette du glyphe est comparé à la ligne médiane du tracé (F1, équivalent au coefficient de Dice[^1]), avec en rouge les parties manquantes et en orange l'encre hors du symbole. La graisse de la police et l'épaisseur du trait n'influent pas sur le score.
 - Compatible avec tous les navigateurs modernes, aucune installation requise  
 
 
@@ -34,18 +34,18 @@ Elle permet de s’entraîner à **tracer les symboles de l’Alphabet Phonétiq
 | **M PLUS 1** | Coz Coz (Japan) | SIL Open Font License (OFL 1.1) | [github.com/coz-m/MPLUS_FONTS](https://github.com/coz-m/MPLUS_FONTS) |
 | **Arimo** | Google / Steve Matteson | Apache License 2.0 | [fonts.google.com/specimen/Arimo](https://fonts.google.com/specimen/Arimo) |
 | **DejaVu Sans** | DejaVu Fonts project | Bitstream Vera License | [dejavu-fonts.github.io](https://dejavu-fonts.github.io) |
-| **CMU Sans Serif** | Carnegie Mellon University | SIL Open Font License (OFL 1.1) | [github.com/CMUTypeDesignResources/cm-unicode](https://github.com/CMUTypeDesignResources/cm-unicode) |
+| **CMU Bright** | Carnegie Mellon University | SIL Open Font License (OFL 1.1) | [github.com/CMUTypeDesignResources/cm-unicode](https://github.com/CMUTypeDesignResources/cm-unicode) |
 
 ## 🧩 Structure du dépôt
 ```
 ipatracer/
 ├── docs/
 │ ├── index.html ← application web (chargée par GitHub Pages)
-│ ├── symbols.json ← liste des symboles et chemins vers les SVG
-│ ├── svgs/ ← pochoirs SVG exportés 
-│ └── fonts/ ← (optionnel) polices locales .woff2 si hébergées
+│ ├── symbols.json ← symboles, noms articulatoires, chemins audio Commons
+│ └── svgs/<police>/ ← pochoirs SVG + metrics.json (lignes de guidage)
+├── fonts/ ← polices sources (non servies par le site)
 ├── README.md ← you are here
-└── ipatrace.py ←script python crée sur Google Colab pour la création des pochoirs
+└── ipatrace.py ← génération des pochoirs
 ```
 
 > Le site est servi directement depuis le dossier `docs/` grâce à GitHub Pages.
@@ -61,16 +61,20 @@ ipatracer/
 
 ## Génération des pochoirs (SVG)
 
-Les SVG ont été exportés automatiquement depuis la police **Andika** à l’aide d’un notebook Python (Colab) utilisant :
+Les SVG sont produits par `ipatrace.py` (`fonttools`) à partir des polices de `fonts/` :
 
-- `fonttools` — extraction des contours vectoriels  
-- `svgPathPen` — conversion des glyphes en chemins SVG  
-- un script d’export qui :
-  - ajuste l’échelle **uniformément** (pour éviter les glyphes “aplatis”)  
-  - ajoute un fond blanc et un contour noir épais  
-  - centre chaque glyphe dans un carré de 1000×1000 unités  
+```
+uv run --with fonttools python ipatrace.py          # toutes les polices
+uv run --with fonttools python ipatrace.py andika   # une seule
+```
 
-👉 Le script python complet pour régénérer les pochoirs est fourni dans le dossier `/notebooks/` *(ou disponible sur demande)*.
+Le script :
+- applique la **même échelle et la même ligne de base** à tous les glyphes d'une police ;
+- centre chaque glyphe horizontalement dans un carré, sur fond blanc, contour légèrement épaissi ;
+- écrit `metrics.json` (ligne de base, hauteur d'x) pour les lignes de guidage ;
+- force le « a » à deux étages d'Andika (le « a » par défaut d'Andika est à un étage, donc identique à ɑ).
+
+Après une régénération, incrémenter `VERSION` dans `docs/index.html` pour invalider le cache.
 
 
 ## Assistance IA

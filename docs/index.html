@@ -1,80 +1,108 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f8fafc">
 <title>IPA tracer</title>
 <style>
   :root{
     --bg:#f8fafc; --card:#fff; --ink:#0f172a; --muted:#475569; --border:#e2e8f0;
-    --accent:#60a5fa; --accent2:#a78bfa;
+    --accent:#60a5fa; --accent2:#a78bfa; --guide:#bfdbfe;
+    --size:300px;
   }
   *{box-sizing:border-box}
-  body{margin:0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
-  header{padding:10px 12px;text-align:center}
-  header h1{margin:0;font-size:clamp(18px,4.2vw,26px);font-weight:800}
-  .wrap{max-width:1100px;margin:0 auto;padding:0 10px 14px}
-  .controls{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:8px auto}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);
+       padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  button,select,input{font:inherit;touch-action:manipulation}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 12px}
+
+  header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0 6px}
+  header h1{margin:0;font-size:20px;font-weight:800}
+  .iconbtn{min-width:40px;height:40px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;font-size:18px;line-height:1}
+  .iconbtn:disabled{opacity:.4;cursor:default}
+
+  .controls{display:none;flex-wrap:wrap;gap:8px;justify-content:center;padding-bottom:8px}
+  .controls.open{display:flex}
   .chip{display:flex;align-items:center;gap:8px;background:linear-gradient(180deg,#eef2ff,#e0f2fe);
-        border:1px solid var(--border);border-radius:999px;padding:6px 10px}
-  .chip label{font-size:12px;color:var(--muted)}
-  .chip input[type="range"]{accent-color:var(--accent);width:160px}
-  .chip input[type="number"]{width:64px;padding:3px 6px;border:1px solid var(--border);border-radius:8px}
-  select{padding:6px 8px;border:1px solid var(--border);border-radius:10px;background:#fff}
-  .switch{appearance:none;width:40px;height:22px;border-radius:999px;background:#cbd5e1;position:relative;outline:none;border:1px solid var(--border);cursor:pointer}
+        border:1px solid var(--border);border-radius:999px;padding:6px 12px}
+  .chip label{font-size:13px;color:var(--muted)}
+  .chip input[type="range"]{accent-color:var(--accent);width:130px}
+  .chip output{font-size:13px;color:var(--muted);min-width:2ch;text-align:right}
+  select{padding:6px 8px;border:1px solid var(--border);border-radius:10px;background:#fff;color:var(--ink)}
+  .switch{appearance:none;-webkit-appearance:none;margin:0;width:40px;height:24px;border-radius:999px;background:#cbd5e1;position:relative;outline:none;border:1px solid var(--border);cursor:pointer;flex:none}
   .switch:checked{background:#93c5fd}
   .switch::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s}
-  .switch:checked::after{left:20px}
+  .switch:checked::after{left:18px}
+  .switch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:6px}
-  .tile{background:var(--card);border:1px solid var(--border);border-radius:12px;display:grid;place-items:center;
-        aspect-ratio:1/1;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.06)}
-  .tile.active{outline:2px solid var(--accent)}
-  .tile img{width:50px;height:50px;filter:grayscale(.08)}
+  /* Bande de symboles : défilement horizontal sur mobile */
+  .grid{display:flex;gap:6px;overflow-x:auto;scroll-snap-type:x proximity;padding:2px 2px 8px;scrollbar-width:thin}
+  .tile{flex:0 0 52px;height:52px;padding:0;background:var(--card);border:1px solid var(--border);border-radius:10px;
+        overflow:hidden;cursor:pointer;scroll-snap-align:center;display:grid;place-items:center}
+  .tile img{width:66px;height:66px;margin:-7px;pointer-events:none}
+  .tile.active{outline:2px solid var(--accent);outline-offset:-2px;background:#eff6ff}
+  .tile:focus-visible{outline:2px solid var(--accent2);outline-offset:-2px}
 
-  .panel{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start;margin-top:10px}
+  .panel{display:flex;flex-direction:column;gap:8px;margin-top:2px}
   .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:8px}
-  .card h3{margin:0 0 .4rem;font-size:14px;color:var(--muted);font-weight:700;text-align:center}
-  .stage{position:relative;max-width:100%;margin:0 auto}
-  /* la largeur exacte est imposée par JS pour synchroniser pochoir et canevas */
+  .card h3{display:none;margin:0 0 .4rem;font-size:14px;color:var(--muted);font-weight:700;text-align:center}
 
-  #stencilBox{position:relative;width:100%;padding-top:100%} /* carré fluide */
-  #stencil{position:absolute;left:0;top:0;width:100%;height:100%;opacity:1;image-rendering:pixelated} /* opaque, pas d’alpha */
+  /* Cible : ligne compacte sur mobile */
+  .target{display:flex;align-items:center;gap:10px}
+  #stencilBox{position:relative;width:72px;aspect-ratio:1/1;flex:none;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#fff}
+  #stencil{position:absolute;inset:0;width:100%;height:100%}
+  #stencilBox.hidden #stencil, #stencilBox.hidden .guides{visibility:hidden}
+  #stencilBox.hidden::after{content:"?";position:absolute;inset:0;display:grid;place-items:center;font-size:32px;font-weight:800;color:#cbd5e1}
+  .meta{flex:1;min-width:0}
+  .meta .name{font-size:14px;color:#334155}
+  .meta .license{display:block;font-size:11px;color:#64748b;margin-top:2px}
+  .listen{margin-top:4px;padding:6px 12px;border:1px solid var(--border);border-radius:999px;background:#f0f9ff;color:var(--ink);cursor:pointer;font-size:14px}
+  .nav{display:flex;gap:6px;flex:none}
 
-  #gridOverlayStencil, #gridOverlayCanvas{
-    position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none;
-    background-image:
-      linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px);
-    background-size:12.5% 12.5%;
-    z-index:3;
-  }
+  /* Zone de dessin */
+  .stage{position:relative;width:var(--size);height:var(--size);margin:0 auto;
+         -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  .stage canvas, .stage .ghost, .guides{position:absolute;inset:0;width:100%;height:100%}
+  #pad{background:#fff;border-radius:12px;border:1px solid var(--border);touch-action:none;z-index:1;cursor:crosshair}
+  #ghost{opacity:.18;pointer-events:none;display:none;z-index:2}
+  #fb{pointer-events:none;z-index:3}
+  .guides{pointer-events:none;z-index:4}
+  .guides .line{position:absolute;left:0;right:0;border-top:1px solid var(--guide)}
+  .guides .xh{border-top-style:dashed}
 
-  /* Fantôme d’aide sur le canevas: AU-DESSUS du canvas */
-  #ghost{
-    position:absolute; left:0; top:0; width:100%; height:100%;
-    opacity:.18; pointer-events:none; display:none; image-rendering:pixelated; z-index:2;
-  }
-
-  canvas{width:100%;height:auto;background:#fff;border-radius:12px;border:1px solid var(--border);
-         box-shadow:inset 0 0 0 1px rgba(15,23,42,.02);touch-action:none;position:relative;z-index:1}
-
-  .row{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:8px;flex-wrap:wrap}
-  .btn{padding:9px 12px;border:none;border-radius:12px;color:#fff;cursor:pointer;box-shadow:0 2px 6px rgba(99,102,241,.18);font-weight:600;font-size:14px}
+  .actions{display:flex;gap:8px;justify-content:center;margin-top:8px}
+  .btn{flex:1;max-width:150px;min-height:44px;padding:8px 12px;border:none;border-radius:12px;color:#fff;cursor:pointer;
+       box-shadow:0 2px 6px rgba(99,102,241,.18);font-weight:600;font-size:15px}
+  .btn:disabled{opacity:.45;cursor:default}
   .btn.eval{background:linear-gradient(180deg,var(--accent),#3b82f6)}
   .btn.clear{background:linear-gradient(180deg,#a5b4fc,var(--accent2))}
-  .score{font-weight:700;color:#0b7669;background:linear-gradient(180deg,#dcfce7,#bbf7d0);border:1px solid #99f6e4;border-radius:999px;padding:6px 10px;font-size:14px;display:none}
+  .btn.undo{background:#fff;color:var(--ink);border:1px solid var(--border);box-shadow:none}
+  .score{text-align:center;font-weight:700;font-size:15px;min-height:1.5em;margin-top:6px;color:#0b7669}
+  .score .hint{display:block;font-weight:400;font-size:13px;color:var(--muted)}
+  .score .miss{color:#dc2626} .score .over{color:#d97706}
 
-  .meta{margin-top:8px;text-align:center}
-  .meta .name{font-size:13px;color:#334155;margin-bottom:6px}
-  .meta audio{width:100%; max-width:260px}
-  .meta .license{display:block;font-size:11px;color:#64748b;margin-top:4px}
+  @media (min-width:760px){
+    #settingsBtn{display:none}
+    .controls{display:flex}
+    .grid{flex-wrap:wrap;justify-content:center;overflow:visible}
+    .panel{display:grid;grid-template-columns:1fr 1fr;align-items:start;margin-top:6px}
+    .card h3{display:block}
+    .target{flex-direction:column;align-items:stretch}
+    #stencilBox{width:var(--size);margin:0 auto}
+    .meta{text-align:center}
+    .nav{justify-content:center}
+  }
 </style>
 </head>
 <body>
-<header class="wrap">
-  <h1>IPA tracer</h1>
-  <div class="controls">
+<div class="wrap">
+  <header>
+    <h1>IPA tracer</h1>
+    <button id="settingsBtn" class="iconbtn" aria-label="Settings" aria-expanded="false" aria-controls="controls">⚙</button>
+  </header>
+  <div id="controls" class="controls">
     <div class="chip">
       <label for="fontpick">Font</label>
       <select id="fontpick">
@@ -82,386 +110,486 @@
         <option value="andika">Andika</option>
         <option value="arimo">Arimo</option>
         <option value="dejavu">DejaVu Sans</option>
-        <option value="cmu">CMU Sans Serif</option>
+        <option value="cmu">CMU Bright</option>
       </select>
     </div>
     <div class="chip">
       <label for="lw">Stroke</label>
-      <input id="lw" type="range" min="4" max="96" value="24">
-      <input id="lw_n" type="number" min="4" max="256" value="24">
+      <input id="lw" type="range" min="6" max="60" value="24">
+      <output id="lw_out" for="lw">24</output>
     </div>
     <div class="chip">
       <label for="help">Guide</label>
       <input id="help" class="switch" type="checkbox">
     </div>
+    <div class="chip">
+      <label for="quiz">Quiz</label>
+      <input id="quiz" class="switch" type="checkbox">
+    </div>
   </div>
-</header>
+</div>
 
 <main class="wrap">
-  <div id="grid" class="grid"></div>
+  <div id="grid" class="grid" role="listbox" aria-label="Symbols"></div>
 
   <div class="panel">
     <div class="card">
       <h3>Stencil</h3>
-      <div id="stencilBox" class="stage">
-        <img id="stencil" alt="stencil">
-        <div id="gridOverlayStencil"></div>
-      </div>
-      <div class="meta">
-        <div id="nameStencil" class="name"></div>
-        <audio id="audioStencil" controls preload="none"></audio>
-        <small id="licStencil" class="license"></small>
+      <div class="target">
+        <div id="stencilBox">
+          <img id="stencil" alt="">
+          <div class="guides"><div class="line base"></div><div class="line xh"></div></div>
+        </div>
+        <div class="meta">
+          <div id="nameStencil" class="name"></div>
+          <button id="listen" class="listen" hidden>▶ Listen</button>
+          <small id="licStencil" class="license"></small>
+        </div>
+        <div class="nav">
+          <button id="prev" class="iconbtn" aria-label="Previous symbol">‹</button>
+          <button id="next" class="iconbtn" aria-label="Next symbol">›</button>
+        </div>
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="padCard">
       <h3>Draw</h3>
-      <div class="stage">
-        <img id="ghost" alt="guide">
-        <canvas id="pad"></canvas>
-        <div id="gridOverlayCanvas"></div>
+      <div class="stage" id="padStage">
+        <canvas id="pad" aria-label="Drawing area"></canvas>
+        <img id="ghost" class="ghost" alt="">
+        <canvas id="fb"></canvas>
+        <div class="guides"><div class="line base"></div><div class="line xh"></div></div>
       </div>
-      <div class="row">
-        <button id="eval" class="btn eval">Evaluate</button>
+      <div class="actions">
+        <button id="undo" class="btn undo" disabled>Undo</button>
         <button id="clear" class="btn clear">Clear</button>
-        <div id="out" class="score"></div>
+        <button id="eval" class="btn eval">Check</button>
       </div>
+      <div id="out" class="score" aria-live="polite"></div>
     </div>
   </div>
 </main>
 
 <script>
-/* -------- Cache bust dynamique -------- */
-function makeBust(){ return 'b=' + Date.now(); }
-let BUST = makeBust();
-
 /* -------- Réglages -------- */
-let LINE_WIDTH = 24;
+const VERSION = '2';      // à incrémenter quand les SVG changent (cache)
+const N = 200;            // résolution de l'évaluation, indépendante de l'écran
+const REF = 300;          // l'épaisseur du trait est exprimée pour un canevas de 300 px
 const THRESH = 235;
-const DILATION_ITERS = 3;
+const TOL = Math.round(N * 0.04);   // tolérance de position (px à la résolution N)
 
-let SIZE = 280;          // taille carrée imposée aux .stage
-let MODEL_SIZE = 0;
+/* -------- localStorage protégé (navigation privée, etc.) -------- */
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : v; } catch { return d; } },
+  set(k, v){ try { localStorage.setItem(k, v); } catch {} }
+};
 
 let symbols = [];
-let available = [];
-let current = null;
-let modelMask = null;
+let idx = -1, current = null;
+let SIZE = 0;
+let model = null;          // {mask, dist, tolR}
+let modelToken = 0;
+let strokes = [];          // [{w, pts:[[x,y],…]}], coordonnées normalisées 0..1
+let revealed = true;
+
+const $ = id => document.getElementById(id);
+const pad = $('pad'), fb = $('fb');
+const ctx = pad.getContext('2d');
+const fbx = fb.getContext('2d');
+
+/* -------- Panneau de réglages (mobile) -------- */
+$('settingsBtn').onclick = ()=>{
+  const open = $('controls').classList.toggle('open');
+  $('settingsBtn').setAttribute('aria-expanded', open);
+  applySize(true);
+};
 
 /* -------- Fonte (M PLUS défaut) -------- */
-let FONT_KEY = localStorage.getItem('ipa_font') || 'mplus';
-const fontpick = document.getElementById('fontpick');
+let FONT_KEY = store.get('ipa_font', 'mplus');
+const fontpick = $('fontpick');
 fontpick.value = FONT_KEY;
+if (fontpick.value !== FONT_KEY){ FONT_KEY = 'mplus'; fontpick.value = FONT_KEY; }
 fontpick.addEventListener('change', async e=>{
   FONT_KEY = e.target.value;
-  localStorage.setItem('ipa_font', FONT_KEY);
-  BUST = makeBust();
-  await reloadFontSet();
+  store.set('ipa_font', FONT_KEY);
+  buildGrid();
+  await loadMetrics();
+  if (current) select(idx);
 });
 
-/* -------- Stroke UI -------- */
-const lw = document.getElementById('lw'), lw_n = document.getElementById('lw_n');
-function setLW(v){ LINE_WIDTH = Math.max(1, Number(v)||24); lw.value=LINE_WIDTH; lw_n.value=LINE_WIDTH; if (ctx) ctx.lineWidth = LINE_WIDTH; }
-lw.oninput = e=>setLW(e.target.value); lw_n.oninput = e=>setLW(e.target.value);
+/* -------- Épaisseur du trait (vaut pour les traits suivants) -------- */
+let LINE_WIDTH = Number(store.get('ipa_lw', 24)) || 24;
+const lw = $('lw');
+function setLW(v){
+  LINE_WIDTH = Math.min(60, Math.max(6, Number(v) || 24));
+  lw.value = LINE_WIDTH; $('lw_out').textContent = LINE_WIDTH;
+  store.set('ipa_lw', LINE_WIDTH);
+}
+lw.oninput = e=>setLW(e.target.value);
+setLW(LINE_WIDTH);
 
-/* -------- Toggle guide -------- */
-const help = document.getElementById('help');
-help.addEventListener('change', ()=> syncGhost(current));
-function helpEnabled(){ return !!help.checked; }
+/* -------- Guide (fantôme) et quiz -------- */
+const help = $('help'), quiz = $('quiz');
+help.checked = store.get('ipa_help', '0') === '1';
+quiz.checked = store.get('ipa_quiz', '0') === '1';
+help.addEventListener('change', ()=>{ store.set('ipa_help', help.checked ? '1' : '0'); syncGhost(); });
+quiz.addEventListener('change', ()=>{ store.set('ipa_quiz', quiz.checked ? '1' : '0'); setRevealed(!quiz.checked); });
 
-/* -------- Métadonnées (pochoir seul) -------- */
-const PHONO = {
-  "i": { name:"Close front unrounded vowel", audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Close_front_unrounded_vowel.ogg", license:"Audio © Wikimedia Commons" },
-  "u": { name:"Close back rounded vowel",   audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Close_back_rounded_vowel.ogg",   license:"Audio © Wikimedia Commons" },
-  "ɑ": { name:"Open back unrounded vowel",  audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Open_back_unrounded_vowel.ogg",   license:"Audio © Wikimedia Commons" },
-  "æ": { name:"Near-open front unrounded vowel", audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Near-open_front_unrounded_vowel.ogg", license:"Audio © Wikimedia Commons" },
-  "ə": { name:"Mid-central vowel (schwa)",  audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Mid-central_vowel.ogg", license:"Audio © Wikimedia Commons" },
-  "p": { name:"Voiceless bilabial plosive", audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiceless_bilabial_plosive.ogg", license:"Audio © Wikimedia Commons" },
-  "t": { name:"Voiceless alveolar stop",    audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiceless_alveolar_stop.ogg", license:"Audio © Wikimedia Commons" },
-  "k": { name:"Voiceless velar stop",       audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiceless_velar_plosive.ogg", license:"Audio © Wikimedia Commons" },
-  "θ": { name:"Voiceless dental fricative", audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiceless_dental_fricative.ogg", license:"Audio © Wikimedia Commons" },
-  "ð": { name:"Voiced dental fricative",    audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiced_dental_fricative.ogg", license:"Audio © Wikimedia Commons" },
-  "s": { name:"Voiceless alveolar fricative", audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiceless_alveolar_fricative.ogg", license:"Audio © Wikimedia Commons" },
-  "z": { name:"Voiced alveolar fricative",  audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiced_alveolar_sibilant.ogg", license:"Audio © Wikimedia Commons" },
-  "ʃ": { name:"Voiceless postalveolar fricative", audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiceless_postalveolar_fricative.ogg", license:"Audio © Wikimedia Commons" },
-  "ʒ": { name:"Voiced postalveolar fricative",   audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiced_postalveolar_fricative.ogg",   license:"Audio © Wikimedia Commons" },
-  "h": { name:"Voiceless glottal fricative", audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Voiceless_glottal_fricative.ogg", license:"Audio © Wikimedia Commons" },
-  "m": { name:"Bilabial nasal",             audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Bilabial_nasal.ogg", license:"Audio © Wikimedia Commons" },
-  "n": { name:"Alveolar nasal",             audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Alveolar_nasal.ogg", license:"Audio © Wikimedia Commons" },
-  "ŋ": { name:"Velar nasal",                audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Velar_nasal.ogg", license:"Audio © Wikimedia Commons" },
-  "l": { name:"Alveolar lateral approximant", audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Alveolar_lateral_approximant.ogg", license:"Audio © Wikimedia Commons" },
-  "ɹ": { name:"Alveolar approximant",       audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Alveolar_approximant.ogg", license:"Audio © Wikimedia Commons" },
-  "j": { name:"Palatal approximant",        audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Palatal_approximant.ogg", license:"Audio © Wikimedia Commons" },
-  "w": { name:"Labio-velar approximant",    audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Labio-velar_approximant.ogg", license:"Audio © Wikimedia Commons" },
-  "ʔ": { name:"Glottal stop",               audio:"https://commons.wikimedia.org/wiki/Special:FilePath/Glottal_stop.ogg", license:"Audio © Wikimedia Commons" },
-  "ː": { name:"Length mark" },
-  "ˈ": { name:"Primary stress" },
-  "ˌ": { name:"Secondary stress" }
-};
-function updateMeta(entry){
-  const meta = PHONO[(entry.ch||'').trim()] || {};
-  document.getElementById('nameStencil').textContent = meta.name || '';
-  const aS = document.getElementById('audioStencil');
-  const lS = document.getElementById('licStencil');
-  if (meta.audio){ aS.src = meta.audio; aS.style.display='block'; lS.textContent = meta.license||'Audio © Wikimedia Commons'; }
-  else { aS.removeAttribute('src'); aS.style.display='none'; lS.textContent=''; }
+function setRevealed(v){
+  revealed = v;
+  $('stencilBox').classList.toggle('hidden', !v);
+  syncGhost();
+}
+function syncGhost(){
+  const g = $('ghost');
+  const on = current && help.checked && revealed;
+  g.style.display = on ? 'block' : 'none';
+  if (on) g.src = pathFor(current);
 }
 
-/* -------- Taille unique imposée aux stages -------- */
-function computeStageSize(){
-  // petit téléphone -> 140..300, desktop -> max 360
-  const vw = Math.max(320, window.innerWidth||800);
-  const target = Math.min(360, Math.max(140, Math.floor(vw/3.6)));
-  SIZE = target;
-  document.querySelectorAll('.stage').forEach(el=>{ el.style.width = SIZE+'px'; });
+/* -------- Fichiers -------- */
+function stem(ch){
+  const unsafe = '\\/:*?"<>| ';
+  return unsafe.includes(ch) ? 'u' + ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0') : ch;
 }
-computeStageSize();
+function pathFor(s, font = FONT_KEY){ return `svgs/${font}/${stem(s.ch)}.svg?v=${VERSION}`; }
 
-/* -------- Helpers fichiers -------- */
-function basenameFromEntry(s){
-  if (s.file && s.file.includes('/')) return s.file.split('/').pop();
-  if (s.file) return s.file;
-  const ch = s.ch || '';
-  const bad = '/\\:*?"<>| ';
-  if (ch && [...bad].every(c=>!ch.includes(c))) return ch + '.svg';
-  const cp = (ch && ch.codePointAt) ? ch.codePointAt(0).toString(16).toUpperCase() : "0000";
-  return 'u' + cp + '.svg';
+const COMMONS = 'https://upload.wikimedia.org/wikipedia/commons/';
+function audioURL(p){
+  const name = p.split('/').pop();
+  const mp3 = `${COMMONS}transcoded/${p}.ogg/${name}.ogg.mp3`;
+  const ogg = `${COMMONS}${p}.ogg`;
+  // Safari iOS ne lit pas toujours l'Ogg : MP3 en priorité
+  return new Audio().canPlayType('audio/mpeg') ? mp3 : ogg;
 }
-function pathFor(s){ return `svgs/${FONT_KEY}/${basenameFromEntry(s)}?${BUST}`; }
 
-/* -------- Chargement symboles -------- */
+/* -------- Chargement -------- */
 async function loadSymbols(){
-  const r = await fetch('symbols.json?'+BUST);
+  const r = await fetch('symbols.json?v=' + VERSION);
   const j = await r.json();
   const seen = new Set();
-  symbols = (j.symbols||[])
-    .filter(s => (s.ch||'').trim() !== '')
-    .filter(s => { const k=(s.ch||'').trim(); if(seen.has(k)) return false; seen.add(k); return true; });
+  symbols = (j.symbols || []).filter(s => {
+    const k = (s.ch || '').trim();
+    if (!k || seen.has(k)) return false;
+    seen.add(k); return true;
+  });
 }
 
-/* -------- Grille (ignore manquants) -------- */
-async function buildGrid(){
-  const grid = document.getElementById('grid'); grid.innerHTML = '';
-  available = [];
-  await Promise.all(symbols.map(s => new Promise(resolve=>{
-    const test = new Image();
-    test.onload = ()=>{ available.push(s); addTile(s); resolve(); };
-    test.onerror = ()=>resolve();
-    test.src = pathFor(s);
-  })));
-  if (available.length) selectSymbolByEntry(available[0]);
-}
-function addTile(s){
-  const grid = document.getElementById('grid');
-  const t = document.createElement('div'); t.className='tile';
-  const img = document.createElement('img'); img.src = pathFor(s); img.alt = s.ch;
-  t.appendChild(img);
-  t.addEventListener('click', ()=>selectSymbolByEntry(s));
-  grid.appendChild(t);
+async function loadMetrics(){
+  let m = {};
+  try { m = await (await fetch(`svgs/${FONT_KEY}/metrics.json?v=${VERSION}`)).json(); } catch {}
+  document.querySelectorAll('.guides').forEach(g=>{
+    const base = g.querySelector('.base'), xh = g.querySelector('.xh');
+    base.style.display = m.baseline ? '' : 'none';
+    xh.style.display = m.xheight ? '' : 'none';
+    if (m.baseline) base.style.top = (m.baseline * 100) + '%';
+    if (m.xheight) xh.style.top = (m.xheight * 100) + '%';
+  });
 }
 
-/* -------- Placement -------- */
-function fitRect(imgW, imgH, boxW=SIZE, boxH=SIZE){
-  const rImg = imgW/Math.max(1,imgH), rBox = boxW/boxH;
-  let dw, dh, dx, dy;
-  if (rImg > rBox){ dw = boxW; dh = Math.round(dw/rImg); dx = 0; dy = Math.round((boxH-dh)/2); }
-  else { dh = boxH; dw = Math.round(dh*rImg); dy = 0; dx = Math.round((boxW-dw)/2); }
-  return {dx, dy, dw, dh};
+/* -------- Grille (les SVG manquants masquent leur tuile) -------- */
+function buildGrid(){
+  const grid = $('grid'); grid.innerHTML = '';
+  symbols.forEach((s, i)=>{
+    const t = document.createElement('button');
+    t.className = 'tile'; t.setAttribute('role', 'option');
+    t.setAttribute('aria-label', s.name ? `${s.ch} (${s.name})` : s.ch);
+    const img = document.createElement('img');
+    img.alt = ''; img.src = pathFor(s);
+    img.onerror = ()=>{ t.hidden = true; };
+    t.appendChild(img);
+    t.addEventListener('click', ()=>select(i));
+    grid.appendChild(t);
+  });
+  markActive();
 }
-
-/* -------- Pochoir visuel -------- */
-function showStencil(entry){
-  const img = document.getElementById('stencil');
-  img.removeAttribute('src');
-  const url = pathFor(entry);
-  img.onload = ()=>{
-    const fit = fitRect(img.naturalWidth||SIZE, img.naturalHeight||SIZE, SIZE, SIZE);
-    img.style.left = fit.dx+'px'; img.style.top = fit.dy+'px';
-    img.style.width = fit.dw+'px'; img.style.height = fit.dh+'px';
-  };
-  img.src = url;
-}
-
-/* -------- “Fantôme” sur le canevas -------- */
-function syncGhost(entry){
-  const g = document.getElementById('ghost');
-  if (!entry || !helpEnabled()){ g.style.display='none'; return; }
-  const url = pathFor(entry);
-  g.onload = ()=>{
-    const fit = fitRect(g.naturalWidth||SIZE, g.naturalHeight||SIZE, SIZE, SIZE);
-    g.style.left = fit.dx+'px'; g.style.top = fit.dy+'px';
-    g.style.width = fit.dw+'px'; g.style.height = fit.dh+'px';
-    g.style.display = 'block';
-  };
-  g.src = url;
-}
-
-/* -------- SVG -> masque -------- */
-async function svgToMask(entry){
-  const url = pathFor(entry);
-  return new Promise((resolve)=>{
-    const img = new Image(); img.crossOrigin='anonymous';
-    img.onload = ()=>{
-      const off = document.createElement('canvas'); off.width=SIZE; off.height=SIZE;
-      const cx = off.getContext('2d');
-      const fit = fitRect(img.naturalWidth||SIZE, img.naturalHeight||SIZE, SIZE, SIZE);
-      cx.fillStyle = '#fff'; cx.fillRect(0,0,SIZE,SIZE);
-      cx.drawImage(img, fit.dx, fit.dy, fit.dw, fit.dh);
-      const data = cx.getImageData(0,0,SIZE,SIZE).data;
-      const mask = new Uint8Array(SIZE*SIZE);
-      for(let i=0,p=0;i<data.length;i+=4,p++){
-        const lum = data[i]*.2126 + data[i+1]*.7152 + data[i+2]*.0722;
-        mask[p] = (lum < THRESH) ? 1 : 0;
-      }
-      MODEL_SIZE = SIZE;
-      resolve(mask);
-    };
-    img.src = url;
+function markActive(){
+  document.querySelectorAll('.tile').forEach((t, i)=>{
+    t.classList.toggle('active', i === idx);
+    t.setAttribute('aria-selected', i === idx);
   });
 }
 
 /* -------- Sélection symbole -------- */
-async function selectSymbolByEntry(entry){
-  document.querySelectorAll('.tile').forEach(t=>t.classList.remove('active'));
-  const idx = available.indexOf(entry);
-  if (idx >= 0) document.querySelectorAll('.tile')[idx]?.classList.add('active');
+async function select(i){
+  idx = (i + symbols.length) % symbols.length;
+  current = symbols[idx];
+  store.set('ipa_last', current.ch);
+  markActive();
+  const tile = document.querySelectorAll('.tile')[idx];
+  tile?.scrollIntoView({block:'nearest', inline:'center', behavior:'smooth'});
 
-  current = entry;
-  resetCanvas();
-  showStencil(current);
+  strokes = []; redraw(); clearFeedback(); setOut('');
+  $('stencil').src = pathFor(current);
+  $('stencil').alt = current.ch;
   updateMeta(current);
-  modelMask = await svgToMask(current);
-  syncGhost(current);
+  setRevealed(!quiz.checked);
+
+  const token = ++modelToken;
+  const m = await buildModel(current);
+  if (token === modelToken) model = m;
 }
-
-/* -------- Canvas HDPI + reset -------- */
-const pad = document.getElementById('pad');
-const ctx  = pad.getContext('2d', {desynchronized:true});
-
-function setupCanvasBase(){
-  const dpr = Math.max(1, window.devicePixelRatio||1);
-  pad.width  = Math.round(SIZE*dpr);
-  pad.height = Math.round(SIZE*dpr);
-  pad.style.width  = SIZE+'px';
-  pad.style.height = SIZE+'px';
-  ctx.setTransform(dpr,0,0,dpr,0,0);
+function step(d){
+  if (!symbols.length) return;
+  if (quiz.checked && symbols.length > 1){
+    let j; do { j = Math.floor(Math.random() * symbols.length); } while (j === idx);
+    select(j);
+  } else select(idx + d);
 }
-function resetCanvas(){
-  setupCanvasBase();
-  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,SIZE,SIZE);
-  ctx.lineCap='round'; ctx.strokeStyle='#000'; ctx.lineWidth = LINE_WIDTH;
-  document.getElementById('out').style.display='none';
-  syncGhost(current);
+$('prev').onclick = ()=>step(-1);
+$('next').onclick = ()=>step(1);
+
+/* -------- Métadonnées et audio -------- */
+let player = null;
+function updateMeta(s){
+  $('nameStencil').textContent = s.name || '';
+  $('listen').hidden = !s.audio;
+  $('licStencil').textContent = s.audio ? 'Audio: Wikimedia Commons' : '';
 }
-resetCanvas();
-
-/* -------- Resize: imposer même taille aux deux panneaux -------- */
-window.addEventListener('resize', async ()=>{
-  const old = SIZE;
-  computeStageSize();
-  resetCanvas();
-  if (current){
-    showStencil(current);
-    modelMask = await svgToMask(current);
-    syncGhost(current);
-  }
-});
-
-/* -------- Mobile: pas de scroll en dessinant -------- */
-pad.style.touchAction='none';
-pad.addEventListener('touchstart', e=>e.preventDefault(), {passive:false});
-pad.addEventListener('touchmove',  e=>e.preventDefault(), {passive:false});
-
-/* -------- Dessin -------- */
-let drawing=false, last=null;
-pad.addEventListener('pointerdown', e=>{ pad.setPointerCapture?.(e.pointerId); drawing=true; last=getXY(e); });
-pad.addEventListener('pointerup',   ()=>{ drawing=false; last=null; });
-pad.addEventListener('pointercancel',()=>{ drawing=false; last=null; });
-pad.addEventListener('pointermove', e=>{
-  if(!drawing) return;
-  const {x,y} = getXY(e);
-  if(last){ ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(x,y); ctx.stroke(); }
-  last = {x,y};
-});
-function getXY(e){
-  const r = pad.getBoundingClientRect();
-  return { x: Math.round((e.clientX-r.left)*(SIZE/r.width)),
-           y: Math.round((e.clientY-r.top) *(SIZE/r.height)) };
-}
-
-/* -------- Boutons -------- */
-function clearPad(){
-  resetCanvas();
-  if (current){ showStencil(current); updateMeta(current); svgToMask(current).then(m=>modelMask=m); }
-}
-document.getElementById('clear').onclick = ()=>clearPad();
-
-document.getElementById('eval').onclick = async ()=>{
-  if (!current) return;
-  if (!modelMask || MODEL_SIZE !== SIZE){
-    modelMask = await svgToMask(current);
-  }
-  const userMask = canvasToMask();
-  const m = dilate(modelMask, SIZE, DILATION_ITERS);
-  const inter = intersect(userMask, m);
-  const sumU = sum(userMask), sumM = sum(modelMask);
-  const denom = sumU + sumM;
-  const dice = denom ? (2*inter/denom) : 0;
-
-  let text;
-  if (dice <= 0.35) text = "You can do better!";
-  else if (dice <= 0.60) text = "Getting there!";
-  else text = "Yay!!";
-
-  const out = document.getElementById('out');
-  out.textContent = `${(dice*100).toFixed(1)}% — ${text}`;
-  out.style.display='inline-block';
+$('listen').onclick = ()=>{
+  if (!current?.audio) return;
+  if (player) player.pause();
+  player = new Audio(audioURL(current.audio));
+  player.play().catch(()=>{});
 };
 
-/* -------- Masques & morpho -------- */
-function canvasToMask(){
-  const data = ctx.getImageData(0,0,SIZE,SIZE).data;
-  const mask = new Uint8Array(SIZE*SIZE);
-  for(let i=0,p=0;i<data.length;i+=4,p++){
+/* -------- SVG -> modèle (masque + distances) -------- */
+function buildModel(entry){
+  return new Promise(resolve=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const c = document.createElement('canvas'); c.width = c.height = N;
+      const x = c.getContext('2d');
+      x.fillStyle = '#fff'; x.fillRect(0, 0, N, N);
+      x.drawImage(img, 0, 0, N, N);
+      const mask = toMask(x.getImageData(0, 0, N, N).data);
+      // Squelette approché : crêtes de la distance au bord
+      const inside = distTo(mask.map(v => 1 - v));
+      const skel = new Uint8Array(N * N);
+      const vals = [];
+      for (let y = 1; y < N-1; y++) for (let x = 1; x < N-1; x++){
+        const i = y*N + x, v = inside[i];
+        if (!mask[i]) continue;
+        vals.push(v);
+        if (v >= inside[i-1] && v >= inside[i+1] && v >= inside[i-N] && v >= inside[i+N]) skel[i] = 1;
+      }
+      // demi-épaisseur du glyphe (95e centile), pour l'affichage des manques
+      vals.sort((a, b)=>a - b);
+      const hw = vals.length ? vals[Math.floor(vals.length * .95)] : 0;
+      resolve({ mask, skel, dist: distTo(mask), dSkel: distTo(skel), hw });
+    };
+    img.onerror = ()=>resolve(null);
+    img.src = pathFor(entry);
+  });
+}
+
+function toMask(data){
+  const mask = new Uint8Array(N * N);
+  for (let i = 0, p = 0; i < data.length; i += 4, p++){
     const lum = data[i]*.2126 + data[i+1]*.7152 + data[i+2]*.0722;
-    mask[p] = (lum < THRESH) ? 1 : 0;
+    mask[p] = lum < THRESH ? 1 : 0;
   }
   return mask;
 }
-function sum(m){ let s=0; for(let i=0;i<m.length;i++) s+=m[i]; return s; }
-function intersect(a,b){ let s=0; for(let i=0;i<a.length;i++) s += (a[i]&&b[i])?1:0; return s; }
-function dilate(mask,size,it){
-  if(it<=0) return mask.slice();
-  let out = mask.slice();
-  for(let k=0;k<it;k++){
-    const next = out.slice();
-    for(let y=1;y<size-1;y++){
-      for(let x=1;x<size-1;x++){
-        const i=y*size+x;
-        if(out[i]){ next[i]=1; continue; }
-        if(out[i-1]||out[i+1]||out[i-size]||out[i+size]) next[i]=1;
-      }
+
+/* Distance de chanfrein 3-4 au pixel « 1 » le plus proche, en pixels */
+function distTo(mask){
+  const d = new Float32Array(N * N);
+  for (let i = 0; i < d.length; i++) d[i] = mask[i] ? 0 : 1e9;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++){
+    const i = y*N + x; let v = d[i]; if (!v) continue;
+    if (x > 0) v = Math.min(v, d[i-1] + 3);
+    if (y > 0){
+      v = Math.min(v, d[i-N] + 3);
+      if (x > 0) v = Math.min(v, d[i-N-1] + 4);
+      if (x < N-1) v = Math.min(v, d[i-N+1] + 4);
     }
-    out = next;
+    d[i] = v;
   }
-  return out;
+  for (let y = N-1; y >= 0; y--) for (let x = N-1; x >= 0; x--){
+    const i = y*N + x; let v = d[i]; if (!v) continue;
+    if (x < N-1) v = Math.min(v, d[i+1] + 3);
+    if (y < N-1){
+      v = Math.min(v, d[i+N] + 3);
+      if (x < N-1) v = Math.min(v, d[i+N+1] + 4);
+      if (x > 0) v = Math.min(v, d[i+N-1] + 4);
+    }
+    d[i] = v;
+  }
+  for (let i = 0; i < d.length; i++) d[i] /= 3;
+  return d;
 }
 
-/* -------- Reload complet (changement de police) -------- */
-async function reloadFontSet(){
-  await loadSymbols();
-  await buildGrid();
-  computeStageSize();
-  resetCanvas();
-  if (current){ showStencil(current); modelMask = await svgToMask(current); syncGhost(current); }
+/* -------- Taille du canevas -------- */
+// Calculée sur la largeur disponible et la hauteur de l'écran, mais seulement
+// quand la largeur change : la barre d'adresse mobile qui se replie ne doit
+// pas redimensionner (ni effacer) le dessin.
+let lastW = 0;
+function applySize(force){
+  if (!force && window.innerWidth === lastW) return;
+  lastW = window.innerWidth;
+  const card = $('padCard'), stage = $('padStage');
+  const cs = getComputedStyle(card);
+  const w = card.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const top = stage.getBoundingClientRect().top + window.scrollY;
+  const h = window.innerHeight - top - 100;   // place pour les boutons et le score
+  const s = Math.round(Math.max(220, Math.min(w, h, 520)));
+  if (s === SIZE) return;
+  SIZE = s;
+  document.documentElement.style.setProperty('--size', SIZE + 'px');
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  for (const c of [pad, fb]){ c.width = c.height = Math.round(SIZE * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  fbx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  redraw(); clearFeedback();
+}
+window.addEventListener('resize', ()=>applySize(false));
+window.addEventListener('orientationchange', ()=>setTimeout(()=>applySize(true), 200));
+
+/* -------- Dessin -------- */
+function strokeStyle(c, w){
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  c.strokeStyle = '#000'; c.fillStyle = '#000'; c.lineWidth = w;
+}
+function drawStroke(c, s, size){
+  const p = s.pts, w = s.w * size;
+  strokeStyle(c, w);
+  if (p.length === 1){
+    c.beginPath(); c.arc(p[0][0]*size, p[0][1]*size, w/2, 0, Math.PI*2); c.fill();
+    return;
+  }
+  c.beginPath(); c.moveTo(p[0][0]*size, p[0][1]*size);
+  for (let k = 1; k < p.length; k++) c.lineTo(p[k][0]*size, p[k][1]*size);
+  c.stroke();
+}
+function redraw(){
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, SIZE, SIZE);
+  strokes.forEach(s=>drawStroke(ctx, s, SIZE));
+  $('undo').disabled = !strokes.length;
 }
 
-/* -------- Bootstrap -------- */
-(async ()=>{ 
+let live = null, activeId = null, penSeen = false;
+function pt(e){
+  const r = pad.getBoundingClientRect();
+  return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height];
+}
+pad.addEventListener('pointerdown', e=>{
+  if (e.pointerType === 'pen') penSeen = true;
+  if (e.pointerType === 'touch' && penSeen) return;    // paume posée avec un stylet
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  if (activeId !== null) return;                        // un seul doigt à la fois
+  e.preventDefault();
+  activeId = e.pointerId;
+  pad.setPointerCapture?.(e.pointerId);
+  clearFeedback();
+  live = { w: LINE_WIDTH / REF, pts: [pt(e)] };
+  strokes.push(live);
+  drawStroke(ctx, live, SIZE);
+  $('undo').disabled = false;
+});
+pad.addEventListener('pointermove', e=>{
+  if (e.pointerId !== activeId || !live) return;
+  const evs = e.getCoalescedEvents?.() || [];
+  strokeStyle(ctx, live.w * SIZE);
+  ctx.beginPath();
+  let q = live.pts[live.pts.length - 1];
+  ctx.moveTo(q[0]*SIZE, q[1]*SIZE);
+  for (const ev of (evs.length ? evs : [e])){
+    q = pt(ev); live.pts.push(q);
+    ctx.lineTo(q[0]*SIZE, q[1]*SIZE);
+  }
+  ctx.stroke();
+});
+function endStroke(e){
+  if (e.pointerId !== activeId) return;
+  activeId = null; live = null;
+}
+pad.addEventListener('pointerup', endStroke);
+pad.addEventListener('pointercancel', endStroke);
+// iOS : empêcher défilement, zoom et loupe pendant le tracé
+pad.addEventListener('touchstart', e=>e.preventDefault(), {passive:false});
+pad.addEventListener('touchmove', e=>e.preventDefault(), {passive:false});
+
+/* -------- Boutons -------- */
+function undo(){ strokes.pop(); redraw(); clearFeedback(); setOut(''); }
+function clearPad(){
+  strokes = []; redraw(); clearFeedback(); setOut('');
+  if (quiz.checked) setRevealed(false);
+}
+$('undo').onclick = undo;
+$('clear').onclick = clearPad;
+$('eval').onclick = evaluate;
+
+function setOut(html){ $('out').innerHTML = html; }
+function clearFeedback(){ fbx.clearRect(0, 0, SIZE, SIZE); }
+
+/* -------- Évaluation --------
+   On compare des lignes médianes, pas des surfaces : le squelette du glyphe
+   contre le tracé rendu en trait fin. Ni la graisse de la police ni
+   l'épaisseur du pinceau n'influent donc sur le score.
+   Précision : part du tracé à moins de TOL du squelette.
+   Rappel    : part du squelette à moins de TOL du tracé.
+   Score     : moyenne harmonique (F1), toujours entre 0 et 100 %. */
+function rasterize(width){
+  const c = document.createElement('canvas'); c.width = c.height = N;
+  const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, N, N);
+  strokes.forEach(s=>drawStroke(x, {w: width ?? s.w, pts: s.pts}, N));
+  return toMask(x.getImageData(0, 0, N, N).data);
+}
+function evaluate(){
+  if (!model){ setOut('Loading…'); return; }
+  if (!strokes.length){ setOut('<span class="hint">Draw the symbol first.</span>'); return; }
+
+  const line = rasterize(1.5 / N);     // ligne médiane du tracé
+  const ink = rasterize();             // tracé réel, pour l'affichage
+  const dl = distTo(line);
+  const uhw = Math.max(...strokes.map(s => s.w)) * N / 2;
+
+  const c = document.createElement('canvas'); c.width = c.height = N;
+  const x = c.getContext('2d');
+  const img = x.createImageData(N, N), px = img.data;
+  let uN = 0, uIn = 0, mN = 0, mHit = 0;
+  for (let i = 0; i < line.length; i++){
+    if (line[i]){ uN++; if (model.dSkel[i] <= TOL) uIn++; }
+    if (model.skel[i]){ mN++; if (dl[i] <= TOL) mHit++; }
+    // rouge : partie du glyphe non couverte ; orange : encre hors du glyphe
+    if (model.mask[i] && dl[i] > model.hw + TOL){ px[i*4] = 239; px[i*4+1] = 68; px[i*4+2] = 68; px[i*4+3] = 150; }
+    else if (ink[i] && model.dSkel[i] > TOL + uhw){ px[i*4] = 245; px[i*4+1] = 158; px[i*4+2] = 11; px[i*4+3] = 170; }
+  }
+  const P = uN ? uIn / uN : 0, R = mN ? mHit / mN : 0;
+  const f1 = (P + R) ? 2*P*R / (P + R) : 0;
+
+  x.putImageData(img, 0, 0);
+  clearFeedback();
+  fbx.imageSmoothingEnabled = true;
+  fbx.drawImage(c, 0, 0, SIZE, SIZE);
+
+  const text = f1 >= .85 ? 'Great!' : f1 >= .65 ? 'Getting there!' : 'Keep trying!';
+  let hint = '';
+  if (R < .9 && R < P - .05) hint = '<span class="hint">Some parts are <span class="miss">missing</span>.</span>';
+  else if (P < .9 && P < R - .05) hint = '<span class="hint">Some ink is <span class="over">outside</span> the shape.</span>';
+  setOut(`${Math.round(f1*100)}% · ${text}${hint}`);
+  setRevealed(true);
+}
+
+/* -------- Clavier -------- */
+document.addEventListener('keydown', e=>{
+  if (e.target.closest('select,input')) return;
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z'){ e.preventDefault(); undo(); }
+  else if (e.key === 'ArrowRight') step(1);
+  else if (e.key === 'ArrowLeft') step(-1);
+  else if (e.key === 'Enter' && !e.target.closest('button')) evaluate();
+});
+
+/* -------- Démarrage -------- */
+(async ()=>{
   await loadSymbols();
-  await buildGrid();
-  computeStageSize();
-  setLW(LINE_WIDTH);
+  buildGrid();
+  applySize(true);
+  await loadMetrics();
+  const last = symbols.findIndex(s => s.ch === store.get('ipa_last', ''));
+  select(last >= 0 ? last : 0);
 })();
 </script>
 </body>

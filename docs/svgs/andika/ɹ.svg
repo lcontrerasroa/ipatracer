@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="1120" height="1120" viewBox="0 0 1120.0 1120.0" xmlns="http://www.w3.org/2000/svg">
-  <rect x="0" y="0" width="1120.0" height="1120.0" fill="white"/>
-  <g transform="translate(132.115,1040.769) scale(0.96154,-0.96154)">
-    <path d="M560 1020H840V405Q840 258 857.0 155.0Q874 52 890 0H615Q608 21 600.0 58.0Q592 95 585.5 133.0Q579 171 575 195Q502 91 415.0 35.5Q328 -20 260 -20Q166 -20 109.0 31.5Q52 83 26.0 168.0Q0 253 0 355L223 390Q228 322 256.0 280.5Q284 239 348 239Q382 239 424.5 276.0Q467 313 505.0 370.5Q543 428 560 490Z" fill="#000" stroke="#000" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+<svg width="1120" height="1120" viewBox="0 0 1120.000 1120.000" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="1120.000" height="1120.000" fill="white"/>
+  <g transform="translate(384.661,793.032) scale(0.45249,-0.45249)">
+    <path d="M540 1020H725V405Q725 258 742.0 155.0Q759 52 775 0H595Q588 21 580.0 58.0Q572 95 565.5 133.0Q559 171 555 195Q482 91 390.0 35.5Q298 -20 230 -20Q147 -20 96.0 27.5Q45 75 22.5 151.5Q0 228 0 315L160 350Q165 269 190.5 217.0Q216 165 275 165Q317 165 370.5 205.5Q424 246 471.0 309.0Q518 372 540 440Z" fill="#000000" stroke="#000000" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
   </g>
 </svg>

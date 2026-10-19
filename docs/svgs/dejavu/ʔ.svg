@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="1120" height="1120" viewBox="0 0 1120.0 1120.0" xmlns="http://www.w3.org/2000/svg">
-  <rect x="0" y="0" width="1120.0" height="1120.0" fill="white"/>
-  <g transform="translate(231.493,1060.000) scale(0.64350,-0.64350)">
-    <path d="M340 798H403Q595 798 681 912Q739 988 739 1086Q738 1219 681 1284Q582 1398 403 1398Q323 1398 244 1376Q166 1355 88 1312V1484Q164 1519 245 1536Q326 1554 411 1554Q686 1554 824 1397Q933 1272 933 1086Q933 916 825 801Q713 682 543 652V0H341Z" fill="#000" stroke="#000" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+<svg width="1120" height="1120" viewBox="0 0 1120.000 1120.000" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="1120.000" height="1120.000" fill="white"/>
+  <g transform="translate(305.767,842.869) scale(0.49801,-0.49801)">
+    <path d="M340 798H403Q595 798 681 912Q739 988 739 1086Q738 1219 681 1284Q582 1398 403 1398Q323 1398 244 1376Q166 1355 88 1312V1484Q164 1519 245 1536Q326 1554 411 1554Q686 1554 824 1397Q933 1272 933 1086Q933 916 825 801Q713 682 543 652V0H341Z" fill="#000000" stroke="#000000" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
   </g>
 </svg>
