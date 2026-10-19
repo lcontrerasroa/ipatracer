@@ -12,6 +12,7 @@ Elle permet de s’entraîner à **tracer les symboles de l’Alphabet Phonétiq
 - **Pochoirs SVG** de chaque symbole IPA dans 5 polices, à **échelle commune** : ˈ reste petit et en haut, ɪ plus petit que l, etc.
 - **Quadrillage** et **lignes de guidage** (ligne de base, hauteur d'x)
 - Réglages : police, épaisseur du trait, fantôme d'aide sur le canevas
+- **Exercices sur des mots** (onglet Words) : 85 mots SSBE avec audio Commons, une case par symbole de la transcription, détection du symbole tracé par erreur (« That looks like i, expected ɪ »). Liste dans `docs/words.json`.
 - **Mode quiz** : le pochoir est masqué, on trace d'après le nom et le son, le pochoir s'affiche à la vérification
 - **Annuler** trait par trait, navigation ‹ › et clavier (← →, Entrée, Ctrl+Z)
 - **Audio** Wikimedia Commons (MP3, lisible sur iPhone)

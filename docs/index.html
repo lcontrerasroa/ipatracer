@@ -12,6 +12,7 @@
     --size:300px;
   }
   *{box-sizing:border-box}
+  [hidden]{display:none!important}
   html{-webkit-text-size-adjust:100%}
   body{margin:0;font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);
        padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
@@ -22,6 +23,23 @@
   header h1{margin:0;font-size:20px;font-weight:800}
   .iconbtn{min-width:40px;height:40px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;font-size:18px;line-height:1}
   .iconbtn:disabled{opacity:.4;cursor:default}
+
+  .tabs{display:flex;gap:2px;background:#e2e8f0;border-radius:999px;padding:3px}
+  .tabs button{border:0;background:transparent;min-height:34px;padding:4px 12px;border-radius:999px;cursor:pointer;font-size:14px;color:var(--muted)}
+  .tabs button[aria-selected="true"]{background:#fff;color:var(--ink);font-weight:700;box-shadow:0 1px 2px rgba(15,23,42,.1)}
+
+  /* Exercice sur des mots */
+  .word{margin-bottom:8px}
+  .wordrow{display:flex;align-items:center;gap:10px}
+  .wordtext{flex:1;font-size:26px;font-weight:800;min-width:0;overflow-wrap:anywhere}
+  .wordrow .listen{margin-top:0}
+  .slots{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-top:8px;min-height:58px}
+  .slot{display:flex;flex-direction:column;align-items:center;gap:2px}
+  .slot .box{width:40px;height:40px;border:1px solid var(--border);border-radius:8px;background:#fff;overflow:hidden;display:grid;place-items:center}
+  .slot .box img{width:52px;height:52px;margin:-6px}
+  .slot.current .box{outline:2px solid var(--accent);outline-offset:-1px}
+  .slot.good .box{background:#dcfce7} .slot.mid .box{background:#fef9c3} .slot.bad .box{background:#fee2e2}
+  .slot .pct{font-size:11px;color:var(--muted);min-height:1.2em}
 
   .controls{display:none;flex-wrap:wrap;gap:8px;justify-content:center;padding-bottom:8px}
   .controls.open{display:flex}
@@ -104,6 +122,10 @@
 <div class="wrap">
   <header>
     <h1>IPA tracer</h1>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-mode="symbols" aria-selected="true">Symbols</button>
+      <button role="tab" data-mode="words" aria-selected="false">Words</button>
+    </div>
     <button id="settingsBtn" class="iconbtn" aria-label="Settings" aria-expanded="false" aria-controls="controls">⚙</button>
   </header>
   <div id="controls" class="controls">
@@ -136,8 +158,17 @@
 <main class="wrap">
   <div id="grid" class="grid" role="listbox" aria-label="Symbols"></div>
 
+  <div id="wordCard" class="card word" hidden>
+    <div class="wordrow">
+      <span id="wordText" class="wordtext"></span>
+      <button id="wordListen" class="listen" hidden>▶ Listen</button>
+      <button id="wordNext" class="iconbtn" aria-label="Next word">›</button>
+    </div>
+    <div id="slots" class="slots"></div>
+  </div>
+
   <div class="panel">
-    <div class="card">
+    <div class="card" id="targetCard">
       <h3>Stencil</h3>
       <div class="target">
         <div id="stencilBox">
@@ -176,7 +207,7 @@
 
 <script>
 /* -------- Réglages -------- */
-const VERSION = '3';      // à incrémenter quand les SVG changent (cache)
+const VERSION = '4';      // à incrémenter quand les SVG changent (cache)
 const N = 200;            // résolution de l'évaluation, indépendante de l'écran
 const REF = 300;          // l'épaisseur du trait est exprimée pour un canevas de 300 px
 const THRESH = 235;
@@ -218,7 +249,8 @@ fontpick.addEventListener('change', async e=>{
   store.set('ipa_font', FONT_KEY);
   buildGrid();
   await loadMetrics();
-  if (current) select(idx);
+  if (MODE === 'words' && W) setSlot(W.i);
+  else if (current) select(idx);
 });
 
 /* -------- Épaisseur du trait (vaut pour les traits suivants) -------- */
@@ -246,7 +278,7 @@ function setRevealed(v){
 }
 function syncGhost(){
   const g = $('ghost');
-  const on = current && help.checked && revealed;
+  const on = current && help.checked && revealed && MODE === 'symbols';
   g.style.display = on ? 'block' : 'none';
   if (on) g.src = pathFor(current);
 }
@@ -330,7 +362,7 @@ async function select(i){
   setRevealed(!quiz.checked);
 
   const token = ++modelToken;
-  const m = await buildModel(current);
+  const m = await getModel(current);
   if (token === modelToken) model = m;
 }
 function step(d){
@@ -358,6 +390,12 @@ $('listen').onclick = ()=>{
 };
 
 /* -------- SVG -> modèle (masque + distances) -------- */
+const models = new Map();   // cache par police et symbole
+function getModel(entry){
+  const k = FONT_KEY + '|' + entry.ch;
+  if (!models.has(k)) models.set(k, buildModel(entry));
+  return models.get(k);
+}
 function buildModel(entry){
   return new Promise(resolve=>{
     const img = new Image();
@@ -541,48 +579,172 @@ function rasterize(width){
   strokes.forEach(s=>drawStroke(x, {w: width ?? s.w, pts: s.pts}, N));
   return toMask(x.getImageData(0, 0, N, N).data);
 }
-function evaluate(){
-  if (!model){ setOut('Loading…'); return; }
-  if (!strokes.length){ setOut('<span class="hint">Draw the symbol first.</span>'); return; }
-
+function userLines(){
   const line = rasterize(1.5 / N);     // ligne médiane du tracé
-  const ink = rasterize();             // tracé réel, pour l'affichage
-  const dl = distTo(line);
-  const uhw = Math.max(...strokes.map(s => s.w)) * N / 2;
-
+  return { line, ink: rasterize(), dl: distTo(line),
+           uhw: Math.max(...strokes.map(s => s.w)) * N / 2 };
+}
+function score(m, u){
+  let uN = 0, uIn = 0, mN = 0, mHit = 0;
+  for (let i = 0; i < u.line.length; i++){
+    if (u.line[i]){ uN++; if (m.dSkel[i] <= TOL) uIn++; }
+    if (m.skel[i]){ mN++; if (u.dl[i] <= TOL) mHit++; }
+  }
+  const P = uN ? uIn / uN : 0, R = mN ? mHit / mN : 0;
+  return { P, R, f1: (P + R) ? 2*P*R / (P + R) : 0 };
+}
+// rouge : partie du glyphe non couverte ; orange : encre hors du glyphe
+function drawOverlay(m, u){
   const c = document.createElement('canvas'); c.width = c.height = N;
   const x = c.getContext('2d');
   const img = x.createImageData(N, N), px = img.data;
-  let uN = 0, uIn = 0, mN = 0, mHit = 0;
-  for (let i = 0; i < line.length; i++){
-    if (line[i]){ uN++; if (model.dSkel[i] <= TOL) uIn++; }
-    if (model.skel[i]){ mN++; if (dl[i] <= TOL) mHit++; }
-    // rouge : partie du glyphe non couverte ; orange : encre hors du glyphe
-    if (model.mask[i] && dl[i] > model.hw + TOL){ px[i*4] = 239; px[i*4+1] = 68; px[i*4+2] = 68; px[i*4+3] = 150; }
-    else if (ink[i] && model.dSkel[i] > TOL + uhw){ px[i*4] = 245; px[i*4+1] = 158; px[i*4+2] = 11; px[i*4+3] = 170; }
+  for (let i = 0; i < u.line.length; i++){
+    if (m.mask[i] && u.dl[i] > m.hw + TOL){ px[i*4] = 239; px[i*4+1] = 68; px[i*4+2] = 68; px[i*4+3] = 150; }
+    else if (u.ink[i] && m.dSkel[i] > TOL + u.uhw){ px[i*4] = 245; px[i*4+1] = 158; px[i*4+2] = 11; px[i*4+3] = 170; }
   }
-  const P = uN ? uIn / uN : 0, R = mN ? mHit / mN : 0;
-  const f1 = (P + R) ? 2*P*R / (P + R) : 0;
-
   x.putImageData(img, 0, 0);
   clearFeedback();
   fbx.imageSmoothingEnabled = true;
   fbx.drawImage(c, 0, 0, SIZE, SIZE);
-
-  const text = f1 >= .85 ? 'Great!' : f1 >= .65 ? 'Getting there!' : 'Keep trying!';
+}
+function verdict(s){
+  const text = s.f1 >= .85 ? 'Great!' : s.f1 >= .65 ? 'Getting there!' : 'Keep trying!';
   let hint = '';
-  if (R < .9 && R < P - .05) hint = '<span class="hint">Some parts are <span class="miss">missing</span>.</span>';
-  else if (P < .9 && P < R - .05) hint = '<span class="hint">Some ink is <span class="over">outside</span> the shape.</span>';
-  setOut(`${Math.round(f1*100)}% · ${text}${hint}`);
+  if (s.R < .9 && s.R < s.P - .05) hint = '<span class="hint">Some parts are <span class="miss">missing</span>.</span>';
+  else if (s.P < .9 && s.P < s.R - .05) hint = '<span class="hint">Some ink is <span class="over">outside</span> the shape.</span>';
+  return { text, hint };
+}
+function evaluate(){
+  if (MODE === 'words') return evalWord();
+  if (!model){ setOut('Loading…'); return; }
+  if (!strokes.length){ setOut('<span class="hint">Draw the symbol first.</span>'); return; }
+  const u = userLines(), s = score(model, u);
+  drawOverlay(model, u);
+  const v = verdict(s);
+  setOut(`${Math.round(s.f1*100)}% · ${v.text}${v.hint}`);
   setRevealed(true);
 }
+
+/* -------- Mode -------- */
+let MODE = store.get('ipa_mode', 'symbols') === 'words' ? 'words' : 'symbols';
+document.querySelectorAll('.tabs button').forEach(b=>{
+  b.onclick = ()=>setMode(b.dataset.mode);
+});
+function setMode(m){
+  MODE = m;
+  store.set('ipa_mode', m);
+  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected', b.dataset.mode === m));
+  $('grid').hidden = m !== 'symbols';
+  $('targetCard').hidden = m !== 'symbols';
+  $('wordCard').hidden = m !== 'words';
+  $('eval').textContent = 'Check';
+  applySize(true);
+  if (m === 'words') startWords();
+  else select(idx >= 0 ? idx : 0);
+}
+
+/* -------- Exercices sur des mots --------
+   Une case par caractère de la transcription ; chaque case est notée avec
+   le même score que les symboles isolés. Le symbole attendu n'apparaît
+   qu'après vérification. */
+let words = [], order = [], wpos = -1, W = null;
+function shuffle(a){
+  for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+const bySym = ch => symbols.find(s => s.ch === ch);
+
+async function startWords(){
+  if (!words.length){
+    const j = await (await fetch('words.json?v=' + VERSION)).json();
+    words = (j.words || []).filter(w => [...w.ipa].every(bySym));
+    order = shuffle(words.map((_, i) => i));
+  }
+  if (W) setSlot(W.i); else nextWord();
+}
+function nextWord(){
+  wpos = (wpos + 1) % order.length;
+  if (wpos === 0 && W) shuffle(order);
+  const w = words[order[wpos]];
+  W = { ...w, chars: [...w.ipa], i: 0, scores: [], wrong: [], checked: false, done: false };
+  setSlot(0);
+}
+async function setSlot(i){
+  W.i = i; W.checked = false;
+  current = bySym(W.chars[i]);
+  strokes = []; redraw(); clearFeedback(); setOut('');
+  renderWord();
+  const token = ++modelToken;
+  const m = await getModel(current);
+  if (token === modelToken) model = m;
+}
+function renderWord(){
+  $('wordText').textContent = W.word;
+  $('wordListen').hidden = !W.audio;
+  const box = $('slots'); box.innerHTML = '';
+  W.chars.forEach((ch, k)=>{
+    const s = document.createElement('div');
+    const f = W.scores[k];
+    s.className = 'slot' + (k === W.i && !W.done ? ' current' : '') +
+      (f === undefined ? '' : W.wrong[k] || f < .65 ? ' bad' : f >= .85 ? ' good' : ' mid');
+    const b = document.createElement('div'); b.className = 'box';
+    if (f !== undefined){ const img = document.createElement('img'); img.alt = ch; img.src = pathFor(bySym(ch)); b.appendChild(img); }
+    const p = document.createElement('div'); p.className = 'pct';
+    p.textContent = f === undefined ? '' : W.wrong[k] ? '✗' : Math.round(f * 100) + '%';
+    s.append(b, p); box.appendChild(s);
+  });
+  $('eval').textContent = W.done ? 'Next word' : W.checked ? (W.i < W.chars.length - 1 ? 'Next ›' : 'Finish') : 'Check';
+}
+async function evalWord(){
+  if (!W) return;
+  if (W.done){ nextWord(); return; }
+  if (W.checked){
+    if (W.i < W.chars.length - 1) setSlot(W.i + 1);
+    else {
+      W.done = true;
+      const avg = W.scores.reduce((a, b)=>a + b, 0) / W.scores.length;
+      strokes = []; redraw(); clearFeedback();
+      setOut(`/${W.ipa}/ · ${Math.round(avg*100)}%`);
+      renderWord();
+    }
+    return;
+  }
+  if (!model){ setOut('Loading…'); return; }
+  if (!strokes.length){ setOut('<span class="hint">Draw the next symbol of the transcription.</span>'); return; }
+  W.checked = true;
+  const u = userLines(), s = score(model, u);
+  drawOverlay(model, u);
+  W.scores[W.i] = s.f1;
+  renderWord();
+  const v = verdict(s);
+  setOut(`${Math.round(s.f1*100)}% · ${v.text}${v.hint}`);
+  // Le tracé ressemble-t-il davantage à un autre symbole ?
+  const all = await Promise.all(symbols.map(getModel));
+  let best = null;
+  all.forEach((m, k)=>{
+    if (!m) return;
+    const f = score(m, u).f1;
+    if (!best || f > best.f) best = { f, ch: symbols[k].ch };
+  });
+  if (best && best.ch !== current.ch && best.f > s.f1 + .1){
+    W.wrong[W.i] = true; renderWord();
+    setOut(`${Math.round(s.f1*100)}% · That looks like <b>${best.ch}</b>, expected <b>${current.ch}</b>.`);
+  }
+}
+$('wordListen').onclick = ()=>{
+  if (!W?.audio) return;
+  if (player) player.pause();
+  player = new Audio(audioURL(W.audio));
+  player.play().catch(()=>{});
+};
+$('wordNext').onclick = ()=>nextWord();
 
 /* -------- Clavier -------- */
 document.addEventListener('keydown', e=>{
   if (e.target.closest('select,input')) return;
   if ((e.ctrlKey || e.metaKey) && e.key === 'z'){ e.preventDefault(); undo(); }
-  else if (e.key === 'ArrowRight') step(1);
-  else if (e.key === 'ArrowLeft') step(-1);
+  else if (e.key === 'ArrowRight') MODE === 'words' ? nextWord() : step(1);
+  else if (e.key === 'ArrowLeft' && MODE === 'symbols') step(-1);
   else if (e.key === 'Enter' && !e.target.closest('button')) evaluate();
 });
 
@@ -590,10 +752,10 @@ document.addEventListener('keydown', e=>{
 (async ()=>{
   await loadSymbols();
   buildGrid();
-  applySize(true);
   await loadMetrics();
   const last = symbols.findIndex(s => s.ch === store.get('ipa_last', ''));
-  select(last >= 0 ? last : 0);
+  idx = last >= 0 ? last : 0;
+  setMode(MODE);
 })();
 </script>
 </body>
