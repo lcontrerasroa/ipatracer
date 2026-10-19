@@ -572,12 +572,35 @@ function clearFeedback(){ fbx.clearRect(0, 0, SIZE, SIZE); }
    Précision : part du tracé à moins de TOL du squelette.
    Rappel    : part du squelette à moins de TOL du tracé.
    Score     : moyenne harmonique (F1), toujours entre 0 et 100 %. */
-function rasterize(width){
+function rasterize(width, pose){
   const c = document.createElement('canvas'); c.width = c.height = N;
   const x = c.getContext('2d');
   x.fillStyle = '#fff'; x.fillRect(0, 0, N, N);
-  strokes.forEach(s=>drawStroke(x, {w: width ?? s.w, pts: s.pts}, N));
+  const map = pose
+    ? p => [pose.cx + pose.s * (p[0] - pose.cx) + pose.dx, pose.cy + pose.s * (p[1] - pose.cy) + pose.dy]
+    : p => p;
+  strokes.forEach(s=>drawStroke(x, {w: width ?? s.w, pts: s.pts.map(map)}, N));
   return toMask(x.getImageData(0, 0, N, N).data);
+}
+/* Mode Words : l'étudiant trace sans modèle, donc un peu trop haut, trop bas
+   ou trop grand. On essaie quelques décalages (±6 % du cadre) et échelles
+   (±15 %) et on garde le meilleur score, pour la cible comme pour les autres
+   symboles. Les différences de taille nettes (ɪ/l, ˈ/l) restent pénalisées. */
+function poseLines(){
+  const pts = strokes.flatMap(s => s.pts);
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const out = [];
+  for (const s of [0.87, 1, 1.15]) for (const dx of [-.06, 0, .06]) for (const dy of [-.06, 0, .06]){
+    const line = rasterize(1.5 / N, {s, dx, dy, cx, cy});
+    out.push({ line, dl: distTo(line) });
+  }
+  return out;
+}
+function bestScore(m, poses){
+  let best = null;
+  for (const u of poses){ const s = score(m, u); if (!best || s.f1 > best.f1) best = s; }
+  return best;
 }
 function userLines(){
   const line = rasterize(1.5 / N);     // ligne médiane du tracé
@@ -713,24 +736,33 @@ async function evalWord(){
   if (!model){ setOut('Loading…'); return; }
   if (!strokes.length){ setOut('<span class="hint">Draw the next symbol of the transcription.</span>'); return; }
   W.checked = true;
-  const u = userLines(), s = score(model, u);
+  const u = userLines(), poses = poseLines();
+  const s = bestScore(model, poses);
   drawOverlay(model, u);
   W.scores[W.i] = s.f1;
   renderWord();
   const v = verdict(s);
   setOut(`${Math.round(s.f1*100)}% · ${v.text}${v.hint}`);
-  // Le tracé ressemble-t-il davantage à un autre symbole ?
+  const alt = await lookalike(poses, current, s);
+  if (alt){
+    W.wrong[W.i] = true; renderWord();
+    setOut(`${Math.round(s.f1*100)}% · That looks like <b>${alt.ch}</b>, expected <b>${current.ch}</b>.`);
+  }
+}
+/* Le tracé ressemble-t-il nettement à un autre symbole ? On ne le dit que si
+   l'autre symbole est bien reconnu en valeur absolue et l'emporte d'au moins
+   15 points : un gribouillis ne « ressemble » à rien. Réglage testé sur des
+   tracés simulés : aucune fausse alerte sur des tracés corrects décalés. */
+const LOOK = { min: .75, margin: .15 };
+async function lookalike(poses, target, s){
   const all = await Promise.all(symbols.map(getModel));
   let best = null;
   all.forEach((m, k)=>{
-    if (!m) return;
-    const f = score(m, u).f1;
+    if (!m || symbols[k].ch === target.ch) return;
+    const f = bestScore(m, poses).f1;
     if (!best || f > best.f) best = { f, ch: symbols[k].ch };
   });
-  if (best && best.ch !== current.ch && best.f > s.f1 + .1){
-    W.wrong[W.i] = true; renderWord();
-    setOut(`${Math.round(s.f1*100)}% · That looks like <b>${best.ch}</b>, expected <b>${current.ch}</b>.`);
-  }
+  return best && best.f >= LOOK.min && best.f >= s.f1 + LOOK.margin ? best : null;
 }
 $('wordListen').onclick = ()=>{
   if (!W?.audio) return;
