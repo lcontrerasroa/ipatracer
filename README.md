@@ -10,7 +10,7 @@ Elle permet de s’entraîner à **tracer les symboles de l’Alphabet Phonétiq
 
 - **Traçage libre** sur canevas, pensé d'abord pour le téléphone (doigt ou stylet, rejet de la paume avec un stylet)
 - **Pochoirs SVG** de chaque symbole IPA dans 5 polices, à **échelle commune** : ˈ reste petit et en haut, ɪ plus petit que l, etc.
-- **Lignes de guidage** (ligne de base et hauteur d'x)
+- **Quadrillage** et **lignes de guidage** (ligne de base, hauteur d'x)
 - Réglages : police, épaisseur du trait, fantôme d'aide sur le canevas
 - **Mode quiz** : le pochoir est masqué, on trace d'après le nom et le son, le pochoir s'affiche à la vérification
 - **Annuler** trait par trait, navigation ‹ › et clavier (← →, Entrée, Ctrl+Z)

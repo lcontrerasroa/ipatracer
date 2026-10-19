@@ -31,7 +31,7 @@ ROOT = Path(__file__).resolve().parent
 SYMBOLS = """\
 a æ ɑ ɒ ɔ e ə ɜ ʌ i ɪ u ʊ
 p b t d k ɡ f v θ ð s z ʃ ʒ h
-m n ŋ l ɫ r ɹ j w ɾ ʔ
+m n ŋ l ɫ r j w ɾ ʔ
 ˈ ˌ ː
 """.split()
 

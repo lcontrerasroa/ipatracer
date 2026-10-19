@@ -68,7 +68,11 @@
   #pad{background:#fff;border-radius:12px;border:1px solid var(--border);touch-action:none;z-index:1;cursor:crosshair}
   #ghost{opacity:.18;pointer-events:none;display:none;z-index:2}
   #fb{pointer-events:none;z-index:3}
-  .guides{pointer-events:none;z-index:4}
+  .guides{pointer-events:none;z-index:4;
+    background-image:
+      linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px);
+    background-size:12.5% 12.5%}
   .guides .line{position:absolute;left:0;right:0;border-top:1px solid var(--guide)}
   .guides .xh{border-top-style:dashed}
 
@@ -106,8 +110,8 @@
     <div class="chip">
       <label for="fontpick">Font</label>
       <select id="fontpick">
-        <option value="mplus">M PLUS</option>
         <option value="andika">Andika</option>
+        <option value="mplus">M PLUS</option>
         <option value="arimo">Arimo</option>
         <option value="dejavu">DejaVu Sans</option>
         <option value="cmu">CMU Bright</option>
@@ -172,7 +176,7 @@
 
 <script>
 /* -------- Réglages -------- */
-const VERSION = '2';      // à incrémenter quand les SVG changent (cache)
+const VERSION = '3';      // à incrémenter quand les SVG changent (cache)
 const N = 200;            // résolution de l'évaluation, indépendante de l'écran
 const REF = 300;          // l'épaisseur du trait est exprimée pour un canevas de 300 px
 const THRESH = 235;
@@ -204,11 +208,11 @@ $('settingsBtn').onclick = ()=>{
   applySize(true);
 };
 
-/* -------- Fonte (M PLUS défaut) -------- */
-let FONT_KEY = store.get('ipa_font', 'mplus');
+/* -------- Fonte (Andika défaut) -------- */
+let FONT_KEY = store.get('ipa_font', 'andika');
 const fontpick = $('fontpick');
 fontpick.value = FONT_KEY;
-if (fontpick.value !== FONT_KEY){ FONT_KEY = 'mplus'; fontpick.value = FONT_KEY; }
+if (fontpick.value !== FONT_KEY){ FONT_KEY = 'andika'; fontpick.value = FONT_KEY; }
 fontpick.addEventListener('change', async e=>{
   FONT_KEY = e.target.value;
   store.set('ipa_font', FONT_KEY);
